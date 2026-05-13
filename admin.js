@@ -142,7 +142,115 @@ async function loadAll() {
     loadComparison(),
     loadMonthly(),
     loadMembersList(),
+    loadCastleLords(),
+    loadGuidelines(),
   ]);
+  populateGuildDatalist();
+}
+
+function populateGuildDatalist() {
+  const dl = document.querySelector("#guildOptions");
+  if (!dl) return;
+  const all = [];
+  ALLIANCE.families.forEach((f) => f.guilds.forEach((g) => all.push(g)));
+  dl.innerHTML = all.map((g) => `<option value="${g}">`).join("");
+}
+
+async function loadCastleLords() {
+  try {
+    const res = await fetch(`${getEndpoint()}?action=castleLords`);
+    if (!res.ok) return;
+    const d = await res.json();
+    const lords = d.lords || {};
+    ["주작성", "현무성", "청룡성", "백호성"].forEach((c) => {
+      const row = document.querySelector(`.cl-row[data-castle="${c}"]`);
+      if (!row) return;
+      const l = lords[c];
+      const nickIn = row.querySelector('[data-field="nickname"]');
+      const guildIn = row.querySelector('[data-field="guild"]');
+      if (nickIn) nickIn.value = l && l.nickname ? l.nickname : "";
+      if (guildIn) guildIn.value = l && l.guild ? l.guild : "";
+    });
+  } catch (err) {
+    console.warn("성주 현황 로드 실패:", err);
+  }
+}
+
+async function saveCastleLord(castle) {
+  const row = document.querySelector(`.cl-row[data-castle="${castle}"]`);
+  if (!row) return;
+  const nickname = row.querySelector('[data-field="nickname"]').value.trim();
+  const guild = row.querySelector('[data-field="guild"]').value.trim();
+  const btn = row.querySelector('button');
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = "…";
+  try {
+    const r = await api({ action: "castleLord:set", castle, nickname, guild });
+    if (!r.ok) throw new Error(r.error || "");
+    btn.textContent = "✓";
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
+  } catch (err) {
+    btn.textContent = orig;
+    btn.disabled = false;
+    alert("저장 실패: " + err.message);
+  }
+}
+
+async function loadGuidelines() {
+  try {
+    const res = await fetch(`${getEndpoint()}?action=guidelines`);
+    if (!res.ok) return;
+    const d = await res.json();
+    const ta = document.querySelector("#guidelinesArea");
+    if (ta) ta.value = d.text || "";
+  } catch (err) {
+    console.warn("지침 로드 실패:", err);
+  }
+}
+
+async function saveGuidelines() {
+  const ta = document.querySelector("#guidelinesArea");
+  const msgEl = document.querySelector("#guidelinesMsg");
+  const text = ta ? ta.value : "";
+  if (msgEl) { msgEl.textContent = "저장 중…"; msgEl.className = "hint"; }
+  try {
+    const r = await api({ action: "guidelines:set", text });
+    if (!r.ok) throw new Error(r.error || "");
+    if (msgEl) { msgEl.textContent = "저장 완료 ✓"; msgEl.className = "hint success"; }
+  } catch (err) {
+    if (msgEl) { msgEl.textContent = "저장 실패: " + err.message; msgEl.className = "hint error"; }
+  }
+}
+
+async function changeAdminPw() {
+  const newPw = document.querySelector("#newPwInput").value.trim();
+  const confirmPw = document.querySelector("#newPwConfirm").value.trim();
+  const msgEl = document.querySelector("#pwChangeMsg");
+  msgEl.className = "hint";
+  if (!newPw || newPw.length < 3) {
+    msgEl.textContent = "비밀번호는 3자 이상이어야 합니다";
+    msgEl.className = "hint error";
+    return;
+  }
+  if (newPw !== confirmPw) {
+    msgEl.textContent = "두 입력값이 다릅니다";
+    msgEl.className = "hint error";
+    return;
+  }
+  msgEl.textContent = "변경 중…";
+  try {
+    const r = await api({ action: "admin:changePw", newPassword: newPw });
+    if (!r.ok) throw new Error(r.error || "");
+    setPassword(newPw);
+    msgEl.textContent = "비밀번호 변경 완료 ✓";
+    msgEl.className = "hint success";
+    document.querySelector("#newPwInput").value = "";
+    document.querySelector("#newPwConfirm").value = "";
+  } catch (err) {
+    msgEl.textContent = "실패: " + err.message;
+    msgEl.className = "hint error";
+  }
 }
 
 async function loadWeekly() {
