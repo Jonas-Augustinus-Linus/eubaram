@@ -113,6 +113,52 @@ input, select, textarea, button { font: inherit; color: inherit; }
   letter-spacing: -0.3px;
 }
 
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.back-link {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 18px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.back-link:hover { color: var(--accent); border-color: var(--accent); }
+
+.guild-context {
+  margin-top: 8px;
+}
+
+.guild-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: linear-gradient(135deg, rgba(255, 204, 0, 0.15), rgba(0, 51, 153, 0.15));
+  border: 1px solid rgba(255, 204, 0, 0.35);
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #FFCC00;
+  letter-spacing: 0.3px;
+}
+
+.guild-badge.warn {
+  background: rgba(248, 81, 73, 0.12);
+  border-color: rgba(248, 81, 73, 0.5);
+  color: var(--danger);
+}
+
+.guild-badge a {
+  color: inherit;
+  text-decoration: underline;
+}
+
 .today-banner {
   margin-top: 10px;
   display: inline-flex;

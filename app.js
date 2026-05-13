@@ -7,6 +7,14 @@ const ENDPOINT_KEY = "juseter_endpoint";
 const DEFAULT_ENDPOINT = "https://script.google.com/macros/s/AKfycbwuCTkMYPDZoQIXe63N5aFf0W-ViJeo8LX4kfspdmt9qporNmgJPWdFAH6GUy2JyN2x5A/exec";
 const KST_OFFSET_MIN = 9 * 60;
 
+// 현재 페이지의 문파 컨텍스트 (URL param ?guild=...)
+const CURRENT_GUILD = (() => {
+  try {
+    const p = new URLSearchParams(location.search);
+    return (p.get("guild") || "").trim();
+  } catch { return ""; }
+})();
+
 // 요일 → 성 매핑 (KST 기준, 월~목)
 // Note: getDay() returns 0=일, 1=월, 2=화, 3=수, 4=목
 const CASTLE_BY_DAY = {
@@ -316,6 +324,24 @@ function renderTodayBanner() {
   return ctx;
 }
 
+function renderGuildContext() {
+  const titleEl = $("#brandTitle");
+  const ctxEl = $("#guildContext");
+  if (!titleEl) return;
+  if (CURRENT_GUILD) {
+    titleEl.textContent = `${CURRENT_GUILD} 공성신청`;
+    if (ctxEl) {
+      ctxEl.innerHTML = `<span class="guild-badge">📜 ${escapeHtml(CURRENT_GUILD)} 전용</span>`;
+    }
+    document.title = `${CURRENT_GUILD} 공성신청 · EU연합`;
+  } else {
+    titleEl.textContent = "공성신청";
+    if (ctxEl) {
+      ctxEl.innerHTML = `<span class="guild-badge warn">⚠️ 문파 미선택 - <a href="index.html">홈에서 문파를 선택해 주세요</a></span>`;
+    }
+  }
+}
+
 // ----- UI: candidates -----
 
 function renderCandidates(cands, primary) {
@@ -358,19 +384,43 @@ function isMemberAllowed(nickname) {
   // 명단이 비어 있으면 (관리자가 아직 안 채움) 일단 허용
   if (!cachedMembers.length) return true;
   const n = (nickname || "").trim().toLowerCase();
+  // 현재 페이지의 문파 컨텍스트가 있으면 해당 문파 소속만 허용
+  if (CURRENT_GUILD) {
+    return cachedMembers.some((m) =>
+      (m.nickname || "").trim().toLowerCase() === n &&
+      (m.guild || "").trim() === CURRENT_GUILD
+    );
+  }
   return cachedMembers.some((m) => (m.nickname || "").trim().toLowerCase() === n);
 }
 
 function lookupGuild(nickname) {
+  if (CURRENT_GUILD) return CURRENT_GUILD;
   const n = (nickname || "").trim().toLowerCase();
   const m = cachedMembers.find((x) => (x.nickname || "").trim().toLowerCase() === n);
   return m ? (m.guild || "") : "";
 }
 
+function memberOfOtherGuild(nickname) {
+  const n = (nickname || "").trim().toLowerCase();
+  const m = cachedMembers.find((x) => (x.nickname || "").trim().toLowerCase() === n);
+  if (!m) return null;
+  if (CURRENT_GUILD && (m.guild || "").trim() !== CURRENT_GUILD) return m.guild || "(미지정)";
+  return null;
+}
+
 function showMemberWarning(nickname) {
   const dlg = $("#memberWarnDialog");
-  $("#memberWarnDetail").textContent =
-    `[${nickname}] 닉네임은 문파원 명단에 없습니다. 닉네임을 확인하거나 문주/관리자에게 문의해 주세요.`;
+  const otherGuild = memberOfOtherGuild(nickname);
+  let msg;
+  if (otherGuild) {
+    msg = `[${nickname}] 은(는) ${otherGuild} 소속입니다. 현재 페이지는 ${CURRENT_GUILD} 전용입니다. 홈에서 본인 문파를 선택해 주세요.`;
+  } else if (CURRENT_GUILD) {
+    msg = `[${nickname}] 닉네임은 ${CURRENT_GUILD} 문파원 명단에 없습니다. 닉네임 확인 또는 관리자에게 문의해 주세요.`;
+  } else {
+    msg = `[${nickname}] 닉네임은 문파원 명단에 없습니다. 닉네임 확인 또는 관리자에게 문의해 주세요.`;
+  }
+  $("#memberWarnDetail").textContent = msg;
   dlg.showModal();
 }
 
@@ -380,12 +430,17 @@ function todayKstString() {
 }
 
 function filterEntries(entries, mode) {
-  if (mode === "all") return entries;
+  let base = entries;
+  // 현재 페이지에 문파 컨텍스트가 있으면 해당 문파만
+  if (CURRENT_GUILD) {
+    base = base.filter((e) => (e.guild || "").trim() === CURRENT_GUILD);
+  }
+  if (mode === "all") return base;
   if (mode === "today") {
     const today = todayKstString();
-    return entries.filter((e) => (e.dateKst || "").startsWith(today));
+    return base.filter((e) => (e.dateKst || "").startsWith(today));
   }
-  return entries.filter((e) => e.castle === mode);
+  return base.filter((e) => e.castle === mode);
 }
 
 // "yyyy-MM-dd HH:mm" 또는 Date toString 형태 모두 받아서 짧게 정리
@@ -835,10 +890,13 @@ function init() {
   const epParam = params.get("endpoint");
   if (epParam) {
     setEndpoint(epParam);
-    // 파라미터 제거하고 깨끗한 URL 로
-    history.replaceState({}, "", location.pathname);
+    // endpoint 제거하고 guild 만 남기기
+    const g = params.get("guild");
+    const newSearch = g ? `?guild=${encodeURIComponent(g)}` : "";
+    history.replaceState({}, "", location.pathname + newSearch);
   }
 
+  renderGuildContext();
   renderTodayBanner();
   // refresh banner every minute
   setInterval(renderTodayBanner, 60 * 1000);

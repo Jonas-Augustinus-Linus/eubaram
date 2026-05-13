@@ -3,24 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0e1117" />
+  <meta name="theme-color" content="#003399" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>주스터콜 공성신청</title>
-  <link rel="stylesheet" href="styles.css?v=9" />
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
+  <title>EU연합 통합시스템</title>
+  <link rel="stylesheet" href="styles.css?v=10" />
+  <link rel="stylesheet" href="landing.css?v=10" />
 </head>
-<body>
-  <header class="site-header">
-    <div class="eu-flag-bar" aria-label="EU 연합 깃발">
-      <svg class="eu-flag-svg" viewBox="0 0 90 60" aria-hidden="true">
+<body class="landing-body">
+  <header class="landing-hero">
+    <div class="eu-flag-bar large" aria-label="EU 연합 깃발">
+      <svg class="eu-flag-svg large" viewBox="0 0 90 60" aria-hidden="true">
         <rect width="90" height="60" fill="#003399"/>
-        <g fill="#FFCC00">
-          <!-- 12 stars in a circle, radius ~15, center 45,30 -->
-          <g id="star-template" transform="translate(0,0)">
-            <polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08" />
-          </g>
-        </g>
         <g fill="#FFCC00">
           <g transform="translate(45,30) rotate(0) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
           <g transform="translate(45,30) rotate(30) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
@@ -36,176 +29,43 @@
           <g transform="translate(45,30) rotate(330) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
         </g>
       </svg>
-      <span class="eu-text">EU 연합 · 주술사연합회</span>
     </div>
-    <div class="brand">
-      <span class="brand-icon" aria-hidden="true">⚔️</span>
-      <h1>주스터콜 공성신청</h1>
-    </div>
+    <h1 class="hero-title">EU 연합 통합시스템</h1>
+    <p class="hero-sub">바람의나라 클래식 · 공성 점수 인증 · 통계 대시보드</p>
     <div class="today-banner" id="todayBanner">
       <span id="todayLabel">오늘은 ...</span>
       <span class="castle-tag" id="castleTag">...</span>
     </div>
   </header>
 
-  <main class="layout">
-    <section class="card" id="formCard" aria-labelledby="formTitle">
-      <h2 id="formTitle">점수 인증</h2>
-
-      <label class="field">
-        <span class="field-label">닉네임 (게임 ID · 최대 6자)</span>
-        <input type="text" id="nickname" placeholder="예: 힐킵" maxlength="6" autocomplete="off" enterkeyhint="next" spellcheck="false" />
-      </label>
-
-      <div class="field">
-        <span class="field-label">점수 스크린샷</span>
-        <label class="drop-zone" id="dropZone" for="fileInput">
-          <input type="file" id="fileInput" accept="image/*" hidden />
-          <div class="drop-inner" id="dropInner">
-            <div class="drop-icon" aria-hidden="true">📸</div>
-            <p class="drop-title">사진을 끌어다 놓거나 탭하세요</p>
-            <p class="drop-sub">PC: 드래그&드롭 · 모바일: 갤러리 또는 카메라</p>
-          </div>
-        </label>
-        <div id="previewWrap" class="preview-wrap" hidden>
-          <img id="preview" alt="" />
-          <div id="cropOverlay" class="crop-overlay" hidden>
-            <div id="cropHint" class="crop-hint">점수 숫자만 드래그로 감싸세요</div>
-            <div id="cropRect" class="crop-rect" hidden></div>
-          </div>
+  <main class="landing-main">
+    <section class="card stats-banner" id="statsBanner">
+      <div class="stats-row">
+        <div class="stat-item">
+          <div class="stat-num" id="statSubmitted">-</div>
+          <div class="stat-lbl">이번주 신청</div>
         </div>
-        <div class="preview-actions" id="previewActions" hidden>
-          <button type="button" class="ghost small-btn" id="cropBtn">🔍 점수 영역 직접 선택</button>
-          <button type="button" class="ghost small-btn" id="clearImgBtn">✕ 이미지 제거</button>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <div class="stat-num" id="statTotal">-</div>
+          <div class="stat-lbl">총 문원</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <div class="stat-num" id="statPct">-</div>
+          <div class="stat-lbl">진행률</div>
         </div>
       </div>
-
-      <div class="ocr-status" id="ocrStatus" hidden>
-        <span class="spinner" aria-hidden="true"></span>
-        <span id="ocrStatusText">이미지에서 점수를 읽고 있어요…</span>
-      </div>
-
-      <div class="field" id="candidatesField" hidden>
-        <span class="field-label">인식된 후보 점수 · 탭해서 선택</span>
-        <div class="candidates" id="candidates"></div>
-      </div>
-
-      <details class="raw-ocr" id="rawOcrSection" hidden>
-        <summary>OCR 원본 텍스트 보기 (디버그)</summary>
-        <pre id="rawOcrText"></pre>
-      </details>
-
-      <label class="field">
-        <span class="field-label">점수</span>
-        <input type="text" id="score" placeholder="예: 2818.23" inputmode="decimal" enterkeyhint="next" />
-      </label>
-
-      <div class="field">
-        <span class="field-label">정예참전 여부</span>
-        <div class="segmented" id="eliteSegmented" role="radiogroup" aria-label="정예참전 여부">
-          <button type="button" class="seg-btn" data-value="O" role="radio" aria-checked="false">⭕ 참전</button>
-          <button type="button" class="seg-btn" data-value="X" role="radio" aria-checked="false">❌ 불참</button>
-          <button type="button" class="seg-btn" data-value="최대한 참여" role="radio" aria-checked="false">⏳ 최대한 참여</button>
-        </div>
-      </div>
-
-      <label class="field">
-        <span class="field-label">비고 / 메모 (선택)</span>
-        <input type="text" id="note" placeholder="예: 점수용병, 참전용병 등" maxlength="80" enterkeyhint="done" />
-      </label>
-
-      <div class="submit-row">
-        <button type="button" class="primary submit-btn" id="submitBtn">
-          <span>✓ 신청하기</span>
-          <small>첫 인증</small>
-        </button>
-        <button type="button" class="primary submit-btn variant-update" id="updateBtn">
-          <span>⟳ 갱신하기</span>
-          <small>점수 업데이트</small>
-        </button>
-      </div>
-
-      <p class="hint" id="formMessage" role="status" aria-live="polite"></p>
+      <div class="progress-bar small"><div class="progress-fill" id="statFill"></div></div>
     </section>
 
-    <section class="card list-card" aria-labelledby="listTitle">
-      <div class="list-header">
-        <h2 id="listTitle">신청 목록</h2>
-        <div class="filter-bar">
-          <select id="castleFilter" aria-label="성 필터">
-            <option value="today">오늘 (자동)</option>
-            <option value="주작성">월 · 주작성</option>
-            <option value="현무성">화 · 현무성</option>
-            <option value="청룡성">수 · 청룡성</option>
-            <option value="백호성">목 · 백호성</option>
-            <option value="all">전체</option>
-          </select>
-          <button type="button" class="ghost icon-btn" id="refreshBtn" aria-label="새로고침" title="새로고침">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <div class="table-wrap" id="entriesScroller">
-        <table id="entriesTable">
-          <colgroup>
-            <col class="col-castle" />
-            <col class="col-nick" />
-            <col class="col-score" />
-            <col class="col-elite" />
-            <col class="col-time" />
-            <col class="col-note" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>성</th>
-              <th>닉네임</th>
-              <th class="num">점수</th>
-              <th>정예</th>
-              <th>시간</th>
-              <th>비고</th>
-            </tr>
-          </thead>
-          <tbody id="entriesTbody">
-            <tr><td colspan="6" class="empty">불러오는 중…</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <section class="select-prompt">
+      <h2>문파를 선택해 주세요</h2>
+      <p class="hint">계를 누르면 소속 문파가 표시됩니다.</p>
     </section>
+
+    <div class="family-grid" id="familyGrid"></div>
   </main>
-
-  <dialog id="confirmDialog" class="dialog">
-    <form method="dialog">
-      <h3>점수갱신을 하신겁니까?</h3>
-      <p id="confirmDetail"></p>
-      <menu>
-        <button value="cancel" class="ghost">아니요</button>
-        <button value="confirm" class="primary" id="confirmYes">예, 갱신합니다</button>
-      </menu>
-    </form>
-  </dialog>
-
-  <dialog id="configDialog" class="dialog">
-    <form method="dialog">
-      <h3>Apps Script 엔드포인트 설정</h3>
-      <p class="hint">최초 1회만 입력하시면 됩니다. Apps Script 를 웹앱으로 배포한 뒤 받은 URL 을 붙여넣어 주세요.</p>
-      <input type="url" id="endpointInput" placeholder="https://script.google.com/macros/s/.../exec" required />
-      <menu>
-        <button value="cancel" class="ghost" type="button" id="configCancel">취소</button>
-        <button value="save" class="primary" id="configSave">저장</button>
-      </menu>
-    </form>
-  </dialog>
-
-  <dialog id="memberWarnDialog" class="dialog dialog-warn">
-    <form method="dialog">
-      <h3>⚠️ 등록된 문원이 아닙니다</h3>
-      <p id="memberWarnDetail">입력하신 닉네임은 문파원 명단에 없습니다. 닉네임을 다시 확인하시거나, 문주/부방장에게 문의해 주세요.</p>
-      <menu>
-        <button value="ok" class="primary">확인</button>
-      </menu>
-    </form>
-  </dialog>
 
   <footer class="site-footer">
     <div class="footer-line">신청 가능: 월~목 00:00 ~ 23:30 (KST)</div>
@@ -216,10 +76,9 @@
     </div>
     <div class="footer-line footer-admin">
       <a href="admin.html">⚙️ 관리자</a>
-      <span class="admin-zone"><a href="#" id="openConfig" hidden>· 엔드포인트 설정</a></span>
     </div>
   </footer>
 
-  <script src="app.js?v=9"></script>
+  <script src="landing.js?v=10"></script>
 </body>
 </html>

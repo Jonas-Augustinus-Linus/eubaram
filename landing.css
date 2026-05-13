@@ -1,0 +1,239 @@
+/* ========================================
+   EU연합 통합시스템 - 랜딩 페이지
+   ======================================== */
+
+.landing-body {
+  background-image:
+    radial-gradient(900px 500px at 50% -10%, rgba(0, 51, 153, 0.4) 0%, transparent 65%),
+    radial-gradient(1200px 600px at 50% -20%, #1a2434 0%, #0c1015 60%);
+}
+
+.landing-hero {
+  text-align: center;
+  padding:
+    calc(40px + var(--safe-top))
+    calc(16px + var(--safe-right))
+    32px
+    calc(16px + var(--safe-left));
+}
+
+.eu-flag-bar.large {
+  margin-bottom: 20px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, rgba(0, 51, 153, 0.5), rgba(0, 51, 153, 0.2));
+  border-width: 2px;
+}
+
+.eu-flag-svg.large {
+  width: 60px;
+  height: 40px;
+}
+
+.hero-title {
+  margin: 0 0 8px;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #FFCC00, #FFE680);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (min-width: 600px) {
+  .hero-title { font-size: 40px; }
+}
+
+.hero-sub {
+  margin: 0 0 18px;
+  font-size: 14px;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+}
+
+.landing-main {
+  max-width: 980px;
+  margin: 0 auto;
+  padding:
+    0
+    calc(16px + var(--safe-right))
+    32px
+    calc(16px + var(--safe-left));
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Stats banner */
+.stats-banner { padding: 16px 20px; }
+
+.stats-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 8px;
+}
+
+.stat-item { text-align: center; flex: 1; }
+
+.stat-num {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-lbl {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 32px;
+  background: var(--border);
+}
+
+.progress-bar.small { height: 6px; margin-top: 12px; }
+
+/* Select prompt */
+.select-prompt { text-align: center; margin: 8px 0 4px; }
+.select-prompt h2 { margin: 0 0 4px; font-size: 18px; font-weight: 700; }
+.select-prompt .hint { margin: 0; }
+
+/* Family grid */
+.family-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 720px) {
+  .family-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.family-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  transition: border-color 0.15s, transform 0.05s;
+}
+
+.family-card.open { border-color: var(--accent); }
+.family-card.is-leader { border-color: #FFCC00; }
+
+.family-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+
+.family-header:hover { background: var(--panel-2); }
+
+.family-name {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.family-card.is-leader .family-name::after {
+  content: " 👑";
+  font-size: 14px;
+}
+
+.family-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.family-pct {
+  background: var(--panel-2);
+  color: var(--accent);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.family-arrow {
+  transition: transform 0.2s;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.family-card.open .family-arrow { transform: rotate(180deg); }
+
+.guild-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  padding: 0 14px 14px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.family-card.open .guild-list {
+  max-height: 800px;
+}
+
+.guild-card {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 10px;
+  text-align: center;
+  text-decoration: none;
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, transform 0.06s;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.guild-card:hover {
+  border-color: var(--accent);
+  background: var(--panel-3);
+}
+
+.guild-card:active { transform: scale(0.97); }
+
+.guild-card.is-leader {
+  background: linear-gradient(135deg, rgba(255, 204, 0, 0.1), rgba(0, 51, 153, 0.05));
+  border-color: rgba(255, 204, 0, 0.4);
+}
+
+.guild-name {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.guild-card.is-leader .guild-name::after {
+  content: " 👑";
+}
+
+.guild-meta {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.guild-meta.submitted-on {
+  color: var(--success);
+}
