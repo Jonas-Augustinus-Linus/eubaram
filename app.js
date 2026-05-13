@@ -428,6 +428,15 @@ function openConfigDialog(required) {
 // ----- Init -----
 
 function init() {
+  // URL 파라미터로 엔드포인트 미리 설정 가능 (?endpoint=...)
+  const params = new URLSearchParams(location.search);
+  const epParam = params.get("endpoint");
+  if (epParam) {
+    setEndpoint(epParam);
+    // 파라미터 제거하고 깨끗한 URL 로
+    history.replaceState({}, "", location.pathname);
+  }
+
   renderTodayBanner();
   // refresh banner every minute
   setInterval(renderTodayBanner, 60 * 1000);
