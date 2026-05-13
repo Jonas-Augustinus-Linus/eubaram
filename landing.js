@@ -9,7 +9,7 @@ const ALLIANCE = {
   name: "EU 연합",
   leader: { nickname: "스왚", guild: "쿠데타" },
   families: [
-    { name: "쿠데타계",       guilds: ["쿠데타", "혁명", "반란", "난", "문파"] },
+    { name: "쿠데타계",       guilds: ["쿠데타", "혁명", "반란", "난"] },
     { name: "주술사연합회계",  guilds: ["주술사연합회", "주술사연맹", "주스터콜", "주토피아", "주막왈숙네"] },
     { name: "로켓단계",       guilds: ["로켓단"] },
     { name: "매화계",         guilds: ["매화"] },
@@ -117,12 +117,16 @@ function renderCastleLords(lords) {
     const cell = document.querySelector(`#lord-${c}`);
     if (!cell) return;
     const lord = lords[c];
-    if (lord && lord.nickname) {
+    const guild = lord && lord.guild ? lord.guild : "";
+    if (guild) {
       cell.classList.remove("empty");
-      cell.innerHTML = `${escapeHtml(lord.nickname)}${lord.guild ? `<div class="cl-lord-guild">${escapeHtml(lord.guild)}</div>` : ""}`;
+      // 연합 내 문파인지 확인
+      const inAlliance = ALLIANCE.families.some((f) => f.guilds.includes(guild));
+      const family = ALLIANCE.families.find((f) => f.guilds.includes(guild));
+      cell.innerHTML = `<span class="lord-guild ${inAlliance ? 'in-alliance' : 'outsider'}">${escapeHtml(guild)}</span>${family ? `<div class="cl-lord-family">${escapeHtml(family.name)}</div>` : ""}`;
     } else {
       cell.classList.add("empty");
-      cell.textContent = "(미점령)";
+      cell.textContent = "미점령";
     }
   });
 }
@@ -273,24 +277,24 @@ function renderGrid(members, entries, lords) {
       const isLeader = g === ALLIANCE.leader.guild;
       const myCastles = castleMap.get(g) || [];
       const url = `siege.html?guild=${encodeURIComponent(g)}`;
-      const castleBadges = myCastles.map((c) => `<span class="castle-lord-badge">🏰 ${escapeHtml(c)}주</span>`).join("");
-      // 원형 progress (SVG) - 둘레 100, dashoffset 으로 % 표현
-      const circ = 2 * Math.PI * 16; // radius 16
+      const castleBadges = myCastles.length
+        ? `<div class="castle-tags">${myCastles.map((c) => `<span class="castle-lord-badge">🏰 ${escapeHtml(c).replace("성","")}</span>`).join("")}</div>`
+        : "";
+      // 원형 progress (SVG)
+      const circ = 2 * Math.PI * 18;
       const offset = circ * (1 - s.pct / 100);
       const pctColor = s.pct >= 80 ? "#69d586" : s.pct >= 40 ? "#FFCC00" : s.pct > 0 ? "#ff8a82" : "#3a424e";
-      return `<a href="${url}" class="guild-card ${isLeader ? "is-leader" : ""} ${myCastles.length ? "is-castle-lord" : ""}">
-        <div class="guild-card-top">
-          <svg class="guild-ring" viewBox="0 0 40 40" aria-hidden="true">
-            <circle class="ring-bg" cx="20" cy="20" r="16" />
-            <circle class="ring-fg" cx="20" cy="20" r="16"
+      return `<a href="${url}" class="guild-card ${isLeader ? "is-leader" : ""} ${myCastles.length ? "is-castle-lord" : ""}" title="${escapeHtml(g)} 신청 페이지로">
+        <div class="guild-name">${escapeHtml(g)}</div>
+        <div class="ring-wrap">
+          <svg class="guild-ring" viewBox="0 0 48 48" aria-hidden="true">
+            <circle class="ring-bg" cx="24" cy="24" r="18" />
+            <circle class="ring-fg" cx="24" cy="24" r="18"
               style="stroke: ${pctColor}; stroke-dasharray: ${circ}; stroke-dashoffset: ${offset};" />
-            <text class="ring-text" x="20" y="22" text-anchor="middle">${s.pct}%</text>
           </svg>
-          <div class="guild-card-info">
-            <span class="guild-name">${escapeHtml(g)}</span>
-            <span class="guild-meta">총원 ${s.total}</span>
-          </div>
+          <span class="ring-pct">${s.pct}<small>%</small></span>
         </div>
+        <div class="guild-meta">총원 ${s.total}</div>
         ${castleBadges}
       </a>`;
     }).join("");

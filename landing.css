@@ -179,15 +179,15 @@
 
 .castle-lord-badge {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 2px 6px;
   background: linear-gradient(135deg, #ffb84a, #ff7e3c);
   color: #2a1900;
   border-radius: 999px;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.2px;
-  margin: 2px 0;
-  box-shadow: 0 1px 4px rgba(255, 126, 60, 0.35);
+  box-shadow: 0 1px 3px rgba(255, 126, 60, 0.35);
+  white-space: nowrap;
 }
 
 .guild-card.is-castle-lord {
@@ -270,23 +270,23 @@
 
 .guild-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
   gap: 8px;
   padding: 0 14px 14px;
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease;
+  transition: max-height 0.35s ease;
 }
 
 .family-card.open .guild-list {
-  max-height: 800px;
+  max-height: 1000px;
 }
 
 .guild-card {
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 12px 10px;
+  padding: 12px 8px 10px;
   text-align: center;
   text-decoration: none;
   color: var(--text);
@@ -295,8 +295,10 @@
   transition: border-color 0.12s, background 0.12s, transform 0.06s;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
   -webkit-tap-highlight-color: transparent;
+  min-height: 130px;
 }
 
 .guild-card:hover {
@@ -307,27 +309,65 @@
 .guild-card:active { transform: scale(0.97); }
 
 .guild-card.is-leader {
-  background: linear-gradient(135deg, rgba(255, 204, 0, 0.1), rgba(0, 51, 153, 0.05));
+  background: linear-gradient(180deg, rgba(255, 204, 0, 0.1), rgba(0, 51, 153, 0.05));
   border-color: rgba(255, 204, 0, 0.4);
 }
 
 .guild-name {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  line-height: 1.2;
+  word-break: keep-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
 .guild-card.is-leader .guild-name::after {
   content: " 👑";
 }
 
+.ring-wrap {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guild-ring {
+  width: 56px;
+  height: 56px;
+  position: absolute;
+  inset: 0;
+}
+
+.ring-pct {
+  position: relative;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.ring-pct small { font-size: 9px; font-weight: 700; margin-left: 1px; opacity: 0.7; }
+
 .guild-meta {
   font-size: 11px;
   color: var(--muted);
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.2px;
 }
 
-.guild-meta.submitted-on {
-  color: var(--success);
+.castle-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  justify-content: center;
+  margin-top: 2px;
 }
 
 /* ===== 성주 현황 ===== */
@@ -364,12 +404,30 @@
   font-size: 14px;
   font-weight: 700;
   color: var(--accent);
-  font-variant-numeric: tabular-nums;
 }
 
 .cl-lord.empty { color: var(--muted-2); font-weight: 500; font-style: italic; font-size: 13px; }
 
-.cl-lord-guild { font-size: 11px; color: var(--muted); font-weight: 500; margin-top: 2px; }
+.cl-lord-family { font-size: 11px; color: var(--muted); font-weight: 500; margin-top: 3px; }
+
+.lord-guild { display: inline-block; }
+.lord-guild.in-alliance {
+  color: var(--accent);
+  padding: 2px 8px;
+  background: rgba(255, 184, 74, 0.12);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+}
+.lord-guild.outsider {
+  color: var(--muted);
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+}
 
 /* ===== 연합 지침 ===== */
 .guidelines-card { padding: 0; overflow: hidden; }
