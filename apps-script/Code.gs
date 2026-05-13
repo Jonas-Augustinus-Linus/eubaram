@@ -330,11 +330,6 @@ function listMembers_() {
     }));
 }
 
-function checkAdmin_(body) {
-  const pw = (body && body.password) || '';
-  return String(pw) === getAdminPassword_();
-}
-
 // body.members: Array<{nickname, guild, family, role}> or Array<string>
 // body.replaceGuild (선택): 'all' 또는 특정 문파명. 해당 범위만 교체.
 function setMembers_(body) {
