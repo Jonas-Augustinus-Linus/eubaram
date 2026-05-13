@@ -95,13 +95,15 @@ async function tryLogin(user, pw) {
     const r = await api({ action: "admin:login" });
     if (r && r.ok) {
       setScope(r.scope || "");
-      return r.scope || "";
+      return { scope: r.scope || "", error: null };
     }
-  } catch (_) {}
-  setUsername("");
-  setPassword("");
-  setScope("");
-  return null;
+    return { scope: null, error: r && r.error ? r.error : "아이디/비밀번호 불일치" };
+  } catch (err) {
+    console.error("login error:", err);
+    return { scope: null, error: `요청 실패: ${err.message}` };
+  } finally {
+    // 실패시 정리는 attemptLogin 에서
+  }
 }
 
 function showLogin() {
@@ -127,15 +129,18 @@ async function attemptLogin(e) {
   if (!user || !pw) { errEl.textContent = "아이디/비밀번호 입력"; errEl.hidden = false; return; }
   $("#loginBtn").disabled = true;
   $("#loginBtn").textContent = "확인 중…";
-  const scope = await tryLogin(user, pw);
+  const result = await tryLogin(user, pw);
   $("#loginBtn").disabled = false;
   $("#loginBtn").textContent = "로그인";
-  if (scope !== null) {
-    applyScope(scope);
+  if (result.scope !== null) {
+    applyScope(result.scope);
     hideLogin();
     loadAll();
   } else {
-    errEl.textContent = "아이디 또는 비밀번호가 틀렸습니다";
+    setUsername("");
+    setPassword("");
+    setScope("");
+    errEl.textContent = result.error || "로그인 실패";
     errEl.hidden = false;
   }
 }
@@ -739,9 +744,9 @@ function init() {
 
   // 로그인 상태 확인 (세션 유지)
   if (getUsername() && getPassword()) {
-    tryLogin(getUsername(), getPassword()).then((scope) => {
-      if (scope !== null) {
-        applyScope(scope);
+    tryLogin(getUsername(), getPassword()).then((result) => {
+      if (result.scope !== null) {
+        applyScope(result.scope);
         hideLogin();
         loadAll();
       } else {
