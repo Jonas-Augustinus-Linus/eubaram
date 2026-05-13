@@ -2,6 +2,9 @@
 // =====================================
 
 const ENDPOINT_KEY = "juseter_endpoint";
+// 프로덕션 백엔드 (Apps Script Web App). 일반 사용자는 이 값 그대로 사용.
+// localStorage 에 다른 값이 있으면 그것이 우선 (개발/테스트용).
+const DEFAULT_ENDPOINT = "https://script.google.com/macros/s/AKfycbwuCTkMYPDZoQIXe63N5aFf0W-ViJeo8LX4kfspdmt9qporNmgJPWdFAH6GUy2JyN2x5A/exec";
 const KST_OFFSET_MIN = 9 * 60;
 
 // 요일 → 성 매핑 (KST 기준, 월~목)
@@ -59,7 +62,7 @@ function formatKstDateTime(date) {
 }
 
 function getEndpoint() {
-  return localStorage.getItem(ENDPOINT_KEY) || "";
+  return localStorage.getItem(ENDPOINT_KEY) || DEFAULT_ENDPOINT;
 }
 
 function setEndpoint(url) {
@@ -408,11 +411,6 @@ async function handleSubmit() {
     return;
   }
 
-  if (!getEndpoint()) {
-    openConfigDialog(true);
-    return;
-  }
-
   // 중복 체크
   const todayStr = todayKstString();
   const dup = findDuplicate(nickname, ctx.castle, todayStr);
@@ -582,11 +580,21 @@ function init() {
   });
   $("#configCancel").addEventListener("click", () => $("#configDialog").close("cancel"));
 
-  if (!getEndpoint()) {
-    openConfigDialog(true);
-  } else {
-    refreshEntries();
+  // 관리자 모드: ?admin=1 URL 파라미터 또는 제목 5회 클릭
+  if (params.get("admin") === "1") {
+    $("#openConfig").hidden = false;
   }
+  let titleClicks = 0;
+  document.querySelector(".brand")?.addEventListener("click", () => {
+    titleClicks++;
+    if (titleClicks >= 5) {
+      $("#openConfig").hidden = false;
+      titleClicks = 0;
+    }
+  });
+
+  // 엔드포인트는 항상 디폴트가 있어서 다이얼로그 자동 오픈 안 함
+  refreshEntries();
 }
 
 document.addEventListener("DOMContentLoaded", init);
