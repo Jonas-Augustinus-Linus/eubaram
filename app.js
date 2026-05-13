@@ -549,7 +549,7 @@ function init() {
   // refresh banner every minute
   setInterval(renderTodayBanner, 60 * 1000);
 
-  $("#pickBtn").addEventListener("click", () => $("#fileInput").click());
+  // 드롭존 자체가 <label for="fileInput"> 이므로 클릭하면 파일 선택이 자동으로 열림.
   $("#fileInput").addEventListener("change", (e) => {
     if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
   });
