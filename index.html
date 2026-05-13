@@ -7,11 +7,37 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>주스터콜 공성신청</title>
-  <link rel="stylesheet" href="styles.css?v=8" />
+  <link rel="stylesheet" href="styles.css?v=9" />
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
 </head>
 <body>
   <header class="site-header">
+    <div class="eu-flag-bar" aria-label="EU 연합 깃발">
+      <svg class="eu-flag-svg" viewBox="0 0 90 60" aria-hidden="true">
+        <rect width="90" height="60" fill="#003399"/>
+        <g fill="#FFCC00">
+          <!-- 12 stars in a circle, radius ~15, center 45,30 -->
+          <g id="star-template" transform="translate(0,0)">
+            <polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08" />
+          </g>
+        </g>
+        <g fill="#FFCC00">
+          <g transform="translate(45,30) rotate(0) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(30) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(60) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(90) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(120) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(150) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(180) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(210) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(240) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(270) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(300) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(330) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+        </g>
+      </svg>
+      <span class="eu-text">EU 연합 · 주술사연합회</span>
+    </div>
     <div class="brand">
       <span class="brand-icon" aria-hidden="true">⚔️</span>
       <h1>주스터콜 공성신청</h1>
@@ -171,12 +197,29 @@
     </form>
   </dialog>
 
+  <dialog id="memberWarnDialog" class="dialog dialog-warn">
+    <form method="dialog">
+      <h3>⚠️ 등록된 문원이 아닙니다</h3>
+      <p id="memberWarnDetail">입력하신 닉네임은 문파원 명단에 없습니다. 닉네임을 다시 확인하시거나, 문주/부방장에게 문의해 주세요.</p>
+      <menu>
+        <button value="ok" class="primary">확인</button>
+      </menu>
+    </form>
+  </dialog>
+
   <footer class="site-footer">
-    <small>
-      신청 가능: 월~목 00:00 ~ 23:30 (KST) · <span class="admin-zone"><a href="#" id="openConfig" hidden>관리자 설정</a></span>
-    </small>
+    <div class="footer-line">신청 가능: 월~목 00:00 ~ 23:30 (KST)</div>
+    <div class="footer-line footer-powered">
+      <span class="eu-stars-mini" aria-hidden="true">★ ★ ★</span>
+      Powered by <strong>주술사연합회</strong>
+      <span class="eu-stars-mini" aria-hidden="true">★ ★ ★</span>
+    </div>
+    <div class="footer-line footer-admin">
+      <a href="admin.html">⚙️ 관리자</a>
+      <span class="admin-zone"><a href="#" id="openConfig" hidden>· 엔드포인트 설정</a></span>
+    </div>
   </footer>
 
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

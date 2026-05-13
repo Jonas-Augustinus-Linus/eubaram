@@ -83,6 +83,17 @@ async function apiList() {
   return data.entries || [];
 }
 
+async function apiMembers() {
+  const ep = getEndpoint();
+  if (!ep) return [];
+  const url = `${ep}?action=members`;
+  const res = await fetch(url, { method: "GET" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "");
+  return data.members || [];
+}
+
 async function apiSubmit(payload) {
   const ep = getEndpoint();
   if (!ep) throw new Error("Apps Script 엔드포인트가 설정되지 않았습니다");
@@ -332,6 +343,36 @@ function renderCandidates(cands, primary) {
 // ----- UI: entries table -----
 
 let cachedEntries = [];
+let cachedMembers = [];
+
+async function refreshMembers() {
+  try {
+    cachedMembers = await apiMembers();
+  } catch (err) {
+    console.warn("문파원 조회 실패:", err);
+    cachedMembers = [];
+  }
+}
+
+function isMemberAllowed(nickname) {
+  // 명단이 비어 있으면 (관리자가 아직 안 채움) 일단 허용
+  if (!cachedMembers.length) return true;
+  const n = (nickname || "").trim().toLowerCase();
+  return cachedMembers.some((m) => (m.nickname || "").trim().toLowerCase() === n);
+}
+
+function lookupGuild(nickname) {
+  const n = (nickname || "").trim().toLowerCase();
+  const m = cachedMembers.find((x) => (x.nickname || "").trim().toLowerCase() === n);
+  return m ? (m.guild || "") : "";
+}
+
+function showMemberWarning(nickname) {
+  const dlg = $("#memberWarnDialog");
+  $("#memberWarnDetail").textContent =
+    `[${nickname}] 닉네임은 문파원 명단에 없습니다. 닉네임을 확인하거나 문주/관리자에게 문의해 주세요.`;
+  dlg.showModal();
+}
 
 function todayKstString() {
   const d = nowKst();
@@ -465,6 +506,11 @@ function validateForm(ctx) {
   const note = $("#note").value.trim();
   const elite = getSelectedElite();
   if (!nickname) { setMessage("닉네임을 입력해 주세요", "error"); return null; }
+  if (!isMemberAllowed(nickname)) {
+    showMemberWarning(nickname);
+    setMessage("등록된 문원이 아닙니다", "error");
+    return null;
+  }
   if (!score) { setMessage("점수를 입력하거나 스크린샷에서 선택해 주세요", "error"); return null; }
   if (!elite) { setMessage("정예참전 여부를 선택해 주세요", "error"); return null; }
   return { nickname, score, note, elite };
@@ -503,6 +549,7 @@ async function doSubmit(asUpdate) {
       castle: ctx.castle,
       dateKst: formatKstDateTime(),
       update: !!asUpdate,
+      guild: lookupGuild(v.nickname),
     };
     const res = await apiSubmit(payload);
     setMessage(res.updated ? `갱신 완료 ✅ (${v.nickname} → ${v.score})` : `신청 완료 ✅ (${v.nickname} · ${v.score})`, "success");
@@ -880,6 +927,7 @@ function init() {
 
   // 엔드포인트는 항상 디폴트가 있어서 다이얼로그 자동 오픈 안 함
   refreshEntries();
+  refreshMembers();
 }
 
 document.addEventListener("DOMContentLoaded", init);

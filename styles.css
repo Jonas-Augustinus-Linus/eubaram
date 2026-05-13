@@ -57,7 +57,7 @@ input, select, textarea, button { font: inherit; color: inherit; }
 
 .site-header {
   padding:
-    calc(20px + var(--safe-top))
+    calc(10px + var(--safe-top))
     calc(16px + var(--safe-right))
     14px
     calc(16px + var(--safe-left));
@@ -69,6 +69,33 @@ input, select, textarea, button { font: inherit; color: inherit; }
   background: rgba(12, 16, 21, 0.85);
   -webkit-backdrop-filter: saturate(140%) blur(14px);
   backdrop-filter: saturate(140%) blur(14px);
+}
+
+/* EU 깃발 바 */
+.eu-flag-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  margin-bottom: 10px;
+  background: linear-gradient(135deg, rgba(0, 51, 153, 0.3), rgba(0, 51, 153, 0.1));
+  border: 1px solid rgba(255, 204, 0, 0.35);
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+}
+
+.eu-flag-svg {
+  width: 28px;
+  height: 19px;
+  border-radius: 2px;
+  display: block;
+  box-shadow: 0 0 0 1px rgba(255, 204, 0, 0.2);
+}
+
+.eu-text {
+  color: #FFCC00;
+  font-weight: 700;
 }
 
 .brand {
@@ -691,22 +718,57 @@ tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
 
 .site-footer {
   padding:
-    18px
+    24px
     calc(16px + var(--safe-right))
-    calc(28px + var(--safe-bottom))
+    calc(32px + var(--safe-bottom))
     calc(16px + var(--safe-left));
   text-align: center;
   color: var(--muted);
   font-size: 12px;
+  border-top: 1px solid var(--border);
+  background: linear-gradient(180deg, transparent, rgba(0, 51, 153, 0.05));
+}
+
+.footer-line {
+  margin: 4px 0;
+}
+
+.footer-powered {
+  font-size: 13px;
+  color: #FFCC00;
+  letter-spacing: 0.5px;
+  margin: 8px 0;
+}
+
+.footer-powered strong {
+  color: #FFCC00;
+  font-weight: 800;
+}
+
+.eu-stars-mini {
+  color: #FFCC00;
+  letter-spacing: 2px;
+  font-size: 9px;
+  opacity: 0.85;
+  margin: 0 6px;
+}
+
+.footer-admin {
+  margin-top: 8px;
+  font-size: 11px;
+  opacity: 0.7;
 }
 
 .site-footer a {
   color: var(--accent);
   text-decoration: none;
-  padding: 4px 0;
+  padding: 4px 6px;
 }
 
 .site-footer a:hover { text-decoration: underline; }
+
+.dialog-warn h3 { color: var(--danger); }
+.dialog-warn p { color: var(--text); font-size: 14.5px; line-height: 1.6; }
 
 /* ===== Animations ===== */
 

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#003399" />
+  <title>주스터콜 · 관리자 대시보드</title>
+  <link rel="stylesheet" href="styles.css?v=9" />
+  <link rel="stylesheet" href="admin.css?v=9" />
+</head>
+<body class="admin-body">
+  <header class="site-header admin-header">
+    <div class="eu-flag-bar" aria-label="EU 연합 깃발">
+      <svg class="eu-flag-svg" viewBox="0 0 90 60" aria-hidden="true">
+        <rect width="90" height="60" fill="#003399"/>
+        <g fill="#FFCC00">
+          <g transform="translate(45,30) rotate(0) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(30) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(60) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(90) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(120) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(150) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(180) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(210) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(240) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(270) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(300) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(330) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+        </g>
+      </svg>
+      <span class="eu-text">EU 연합 · 주술사연합회</span>
+    </div>
+    <div class="brand">
+      <span class="brand-icon" aria-hidden="true">⚙️</span>
+      <h1>관리자 대시보드</h1>
+    </div>
+    <div class="admin-top-actions" id="topActions" hidden>
+      <a href="index.html" class="ghost small-btn">← 사용자 페이지</a>
+      <button type="button" class="ghost small-btn" id="logoutBtn">로그아웃</button>
+    </div>
+  </header>
+
+  <dialog id="loginDialog" class="dialog">
+    <form method="dialog" id="loginForm">
+      <h3>🔐 관리자 로그인</h3>
+      <p class="hint">관리자 비밀번호를 입력해 주세요.</p>
+      <input type="password" id="pwInput" placeholder="비밀번호" required autocomplete="current-password" />
+      <p class="hint error" id="loginError" hidden>비밀번호가 틀렸습니다</p>
+      <menu>
+        <a href="index.html" class="ghost" style="text-decoration:none; display:inline-flex; align-items:center;">취소</a>
+        <button value="login" class="primary" id="loginBtn">로그인</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <main class="admin-main" id="adminMain" hidden>
+    <!-- 통계 카드 -->
+    <section class="card">
+      <h2>📊 이번 주 신청 현황</h2>
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-num" id="kpiSubmitted">-</div>
+          <div class="kpi-lbl">신청 / 전체</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-num" id="kpiPercentage">-</div>
+          <div class="kpi-lbl">신청률</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-num" id="kpiElite">-</div>
+          <div class="kpi-lbl">정예 참전</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-num" id="kpiPeriod">-</div>
+          <div class="kpi-lbl">기간 (KST)</div>
+        </div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="kpi-row" id="eliteBreakdown"></div>
+    </section>
+
+    <!-- 신청자 / 미신청자 토글 -->
+    <section class="card">
+      <div class="list-header">
+        <h2>📋 이번 주 신청자 / 미신청자</h2>
+        <div class="filter-bar">
+          <select id="memberFilter">
+            <option value="all">전체</option>
+            <option value="submitted">신청자만</option>
+            <option value="notSubmitted">미신청자만</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="memberStatsTable">
+          <thead>
+            <tr><th>닉네임</th><th>상태</th><th class="num">점수</th><th>정예</th><th>성</th><th>시간</th></tr>
+          </thead>
+          <tbody id="memberStatsTbody">
+            <tr><td colspan="6" class="empty">로딩 중…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 지난주 vs 이번주 비교 -->
+    <section class="card">
+      <div class="list-header">
+        <h2>📈 지난주 vs 이번주 점수 비교</h2>
+        <button type="button" class="ghost small-btn" id="reloadComparisonBtn">새로고침</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="comparisonTable">
+          <thead>
+            <tr><th>닉네임</th><th class="num">지난주</th><th class="num">이번주</th><th class="num">증감</th></tr>
+          </thead>
+          <tbody id="comparisonTbody">
+            <tr><td colspan="4" class="empty">로딩 중…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 1달 성장 -->
+    <section class="card">
+      <div class="list-header">
+        <h2>🚀 최근 28일 성장 통계</h2>
+        <button type="button" class="ghost small-btn" id="reloadMonthlyBtn">새로고침</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="monthlyTable">
+          <thead>
+            <tr><th>닉네임</th><th class="num">시작</th><th class="num">최고</th><th class="num">성장</th><th class="num">신청수</th></tr>
+          </thead>
+          <tbody id="monthlyTbody">
+            <tr><td colspan="5" class="empty">로딩 중…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 비문원 등록 시도 -->
+    <section class="card" id="nonMemberSection" hidden>
+      <h2>⚠️ 비문원이 신청한 내역</h2>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>닉네임</th><th class="num">점수</th><th>성</th><th>시간</th></tr></thead>
+          <tbody id="nonMemberTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 문원 관리 -->
+    <section class="card">
+      <div class="list-header">
+        <h2>👥 문원 명단 관리</h2>
+        <span class="hint" id="memberCountLabel">-</span>
+      </div>
+
+      <div class="member-mgmt">
+        <details class="member-bulk">
+          <summary>📋 일괄 등록 / 교체 (펼치기)</summary>
+          <p class="hint">한 줄에 한 명씩 닉네임을 입력하세요. 저장 시 기존 명단이 새 명단으로 <strong>완전 교체</strong> 됩니다.</p>
+          <textarea id="bulkArea" rows="8" placeholder="힐킵&#10;현토성&#10;안다웅&#10;..."></textarea>
+          <div class="actions">
+            <button type="button" class="ghost" id="loadCurrentBtn">현재 명단 불러오기</button>
+            <button type="button" class="primary" id="saveBulkBtn">저장 (전체 교체)</button>
+          </div>
+        </details>
+
+        <div class="member-add">
+          <input type="text" id="newMemberInput" placeholder="닉네임 추가" maxlength="20" />
+          <button type="button" class="primary" id="addMemberBtn">추가</button>
+        </div>
+
+        <div class="member-list" id="memberList"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-line footer-powered">
+      <span class="eu-stars-mini" aria-hidden="true">★ ★ ★</span>
+      Powered by <strong>주술사연합회</strong>
+      <span class="eu-stars-mini" aria-hidden="true">★ ★ ★</span>
+    </div>
+  </footer>
+
+  <script src="admin.js?v=9"></script>
+</body>
+</html>
