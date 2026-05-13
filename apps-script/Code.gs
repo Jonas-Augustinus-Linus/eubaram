@@ -39,6 +39,8 @@ function getSheet_() {
     sh.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
     sh.setFrozenRows(1);
   }
+  // 시간 컬럼이 Date 로 자동 변환되지 않게 텍스트로 고정
+  sh.getRange('D2:D').setNumberFormat('@');
   return sh;
 }
 
@@ -67,10 +69,62 @@ function doPost(e) {
     if (action === 'submit') {
       return jsonOut_(submitEntry_(body));
     }
+    if (action === 'ocr') {
+      return jsonOut_(ocrImage_(body));
+    }
     return jsonOut_({ ok: false, error: 'unknown action: ' + action });
   } catch (err) {
     return jsonOut_({ ok: false, error: String(err) });
   }
+}
+
+/**
+ * Google Drive 의 OCR 기능을 사용해 이미지에서 텍스트 추출.
+ * Tesseract.js 보다 게임 UI / 폰 사진 인식률이 훨씬 좋음.
+ *
+ * 사전 준비 (1회):
+ *   Apps Script 편집기 좌측 사이드바 → 「서비스」(Dienste) → + 추가
+ *     → "Drive API" v2 선택 → 추가
+ *   그 후 「배포 관리」 → ✏️ 편집 → 새 버전 → 배포
+ */
+function ocrImage_(body) {
+  try {
+    if (typeof Drive === 'undefined' || !Drive.Files) {
+      return { ok: false, error: 'Drive API v2 서비스가 활성화되지 않았습니다. Apps Script 편집기 → 서비스 → Drive API 추가 후 재배포 하세요.' };
+    }
+    const raw = (body.image || '').toString();
+    const b64 = raw.replace(/^data:[^,]+,/, '');
+    if (!b64) return { ok: false, error: '이미지 없음' };
+    const mime = (body.mime || 'image/png').toString();
+    const bytes = Utilities.base64Decode(b64);
+    const blob = Utilities.newBlob(bytes, mime, 'ocr-input');
+    const resource = {
+      title: 'ocr-temp-' + Date.now(),
+      mimeType: mime,
+    };
+    const file = Drive.Files.insert(resource, blob, {
+      convert: true,
+      ocr: true,
+      ocrLanguage: 'ko',
+    });
+    let text = '';
+    try {
+      const doc = DocumentApp.openById(file.id);
+      text = doc.getBody().getText();
+    } finally {
+      try { DriveApp.getFileById(file.id).setTrashed(true); } catch (_) {}
+    }
+    return { ok: true, text: text };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+}
+
+function formatDateValue_(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd HH:mm');
+  }
+  return String(v || '');
 }
 
 function listEntries_() {
@@ -84,7 +138,7 @@ function listEntries_() {
       castle: String(r[0] || ''),
       nickname: String(r[1] || ''),
       score: String(r[2] || ''),
-      dateKst: String(r[3] || ''),
+      dateKst: formatDateValue_(r[3]),
       note: String(r[4] || ''),
       updated: String(r[5] || '') === '갱신',
     }));

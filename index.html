@@ -2,68 +2,85 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0e1117" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>주스터콜 공성신청</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=2" />
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
 </head>
 <body>
-  <header>
-    <h1>⚔️ 주스터콜 공성신청</h1>
+  <header class="site-header">
+    <div class="brand">
+      <span class="brand-icon" aria-hidden="true">⚔️</span>
+      <h1>주스터콜 공성신청</h1>
+    </div>
     <div class="today-banner" id="todayBanner">
       <span id="todayLabel">오늘은 ...</span>
       <span class="castle-tag" id="castleTag">...</span>
     </div>
   </header>
 
-  <main>
-    <section class="card" id="formCard">
-      <h2>점수 인증</h2>
+  <main class="layout">
+    <section class="card" id="formCard" aria-labelledby="formTitle">
+      <h2 id="formTitle">점수 인증</h2>
 
       <label class="field">
-        <span>닉네임</span>
-        <input type="text" id="nickname" placeholder="예: 힐킵/진선" maxlength="40" autocomplete="off" />
+        <span class="field-label">닉네임 (게임 ID · 최대 6자)</span>
+        <input type="text" id="nickname" placeholder="예: 힐킵" maxlength="6" autocomplete="off" enterkeyhint="next" spellcheck="false" />
       </label>
 
       <div class="field">
-        <span>점수 스크린샷</span>
-        <div class="drop-zone" id="dropZone">
+        <span class="field-label">점수 스크린샷</span>
+        <label class="drop-zone" id="dropZone" for="fileInput">
           <input type="file" id="fileInput" accept="image/*" hidden />
-          <p>이미지를 끌어다 놓거나 <button type="button" class="link-btn" id="pickBtn">파일 선택</button></p>
-          <img id="preview" alt="미리보기" hidden />
-        </div>
+          <div class="drop-inner" id="dropInner">
+            <div class="drop-icon" aria-hidden="true">📸</div>
+            <p class="drop-title">사진을 끌어다 놓거나 탭하세요</p>
+            <p class="drop-sub">PC: 드래그&드롭 · 모바일: 갤러리 또는 카메라</p>
+          </div>
+          <img id="preview" alt="" hidden />
+        </label>
       </div>
 
-      <div class="field ocr-status" id="ocrStatus" hidden>
-        <span class="spinner"></span>
+      <div class="ocr-status" id="ocrStatus" hidden>
+        <span class="spinner" aria-hidden="true"></span>
         <span id="ocrStatusText">이미지에서 점수를 읽고 있어요…</span>
       </div>
 
       <div class="field" id="candidatesField" hidden>
-        <span>인식된 후보 점수 (선택하거나 직접 입력)</span>
+        <span class="field-label">인식된 후보 점수 · 탭해서 선택</span>
         <div class="candidates" id="candidates"></div>
       </div>
 
+      <details class="raw-ocr" id="rawOcrSection" hidden>
+        <summary>OCR 원본 텍스트 보기 (디버그)</summary>
+        <pre id="rawOcrText"></pre>
+      </details>
+
       <label class="field">
-        <span>점수</span>
-        <input type="text" id="score" placeholder="예: 2818.23" inputmode="decimal" />
+        <span class="field-label">점수</span>
+        <input type="text" id="score" placeholder="예: 2818.23" inputmode="decimal" enterkeyhint="next" />
       </label>
 
       <label class="field">
-        <span>비고 / 메모 (선택)</span>
-        <input type="text" id="note" placeholder="예: 4차승급, 매화 등" maxlength="80" />
+        <span class="field-label">비고 / 메모 (선택)</span>
+        <input type="text" id="note" placeholder="예: 4차승급, 매화 등" maxlength="80" enterkeyhint="done" />
       </label>
 
-      <button type="button" class="primary" id="submitBtn">신청하기</button>
+      <button type="button" class="primary submit-btn" id="submitBtn">
+        <span>신청하기</span>
+      </button>
 
-      <p class="hint" id="formMessage"></p>
+      <p class="hint" id="formMessage" role="status" aria-live="polite"></p>
     </section>
 
-    <section class="card">
+    <section class="card list-card" aria-labelledby="listTitle">
       <div class="list-header">
-        <h2 id="listTitle">오늘 신청 목록</h2>
+        <h2 id="listTitle">신청 목록</h2>
         <div class="filter-bar">
-          <select id="castleFilter">
+          <select id="castleFilter" aria-label="성 필터">
             <option value="today">오늘 (자동)</option>
             <option value="주작성">월 · 주작성</option>
             <option value="현무성">화 · 현무성</option>
@@ -71,17 +88,26 @@
             <option value="백호성">목 · 백호성</option>
             <option value="all">전체</option>
           </select>
-          <button type="button" class="ghost" id="refreshBtn">새로고침</button>
+          <button type="button" class="ghost icon-btn" id="refreshBtn" aria-label="새로고침" title="새로고침">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </button>
         </div>
       </div>
 
-      <div class="table-wrap">
+      <div class="table-wrap" id="entriesScroller">
         <table id="entriesTable">
+          <colgroup>
+            <col class="col-castle" />
+            <col class="col-nick" />
+            <col class="col-score" />
+            <col class="col-time" />
+            <col class="col-note" />
+          </colgroup>
           <thead>
             <tr>
               <th>성</th>
               <th>닉네임</th>
-              <th>점수</th>
+              <th class="num">점수</th>
               <th>시간</th>
               <th>비고</th>
             </tr>
@@ -108,7 +134,7 @@
   <dialog id="configDialog" class="dialog">
     <form method="dialog">
       <h3>Apps Script 엔드포인트 설정</h3>
-      <p class="hint">최초 1회만 입력하시면 됩니다. Apps Script를 웹앱으로 배포한 뒤 받은 URL을 붙여넣어 주세요.</p>
+      <p class="hint">최초 1회만 입력하시면 됩니다. Apps Script 를 웹앱으로 배포한 뒤 받은 URL 을 붙여넣어 주세요.</p>
       <input type="url" id="endpointInput" placeholder="https://script.google.com/macros/s/.../exec" required />
       <menu>
         <button value="cancel" class="ghost" type="button" id="configCancel">취소</button>
@@ -117,13 +143,13 @@
     </form>
   </dialog>
 
-  <footer>
+  <footer class="site-footer">
     <small>
       <a href="#" id="openConfig">엔드포인트 설정</a>
-      · 공성 신청 가능 시간: 매일 00:00 ~ 23:30 (KST)
+      · 신청 가능: 월~목 00:00 ~ 23:30 (KST)
     </small>
   </footer>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

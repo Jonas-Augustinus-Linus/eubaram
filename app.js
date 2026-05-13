@@ -143,18 +143,92 @@ function extractScoreCandidates(rawText) {
   };
 }
 
-async function runOcr(file) {
-  // Tesseract.js로 한국어 + 영어 OCR. 게임 UI 폰트는 인식률이 들쭉날쭉하지만
-  // 숫자 후보군만 추리면 충분.
-  const result = await Tesseract.recognize(file, "kor+eng", {
+// 이미지 전처리: 긴 변 기준 maxDim 으로 리사이즈, JPEG 로 인코딩
+async function resizeImage(file, maxDim = 1600, quality = 0.85) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = reject;
+    fr.readAsDataURL(file);
+  });
+  const img = await new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.src = dataUrl;
+  });
+  const ratio = Math.min(1, maxDim / Math.max(img.width, img.height));
+  const w = Math.round(img.width * ratio);
+  const h = Math.round(img.height * ratio);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, w, h);
+  const out = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+  return out;
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => {
+      const s = fr.result || "";
+      const i = s.indexOf(",");
+      resolve(i >= 0 ? s.slice(i + 1) : s);
+    };
+    fr.onerror = reject;
+    fr.readAsDataURL(blob);
+  });
+}
+
+// 서버 OCR (Google Drive API 사용) - Tesseract 보다 훨씬 정확
+async function runOcrRemote(file) {
+  const ep = getEndpoint();
+  if (!ep) throw new Error("엔드포인트 미설정");
+  $("#ocrStatusText").textContent = "이미지 리사이즈 중…";
+  const blob = await resizeImage(file, 1600, 0.85);
+  $("#ocrStatusText").textContent = "Google Drive OCR 실행 중… (3-10초)";
+  const b64 = await blobToBase64(blob);
+  const res = await fetch(ep, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "ocr", image: b64, mime: blob.type || "image/jpeg" }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "OCR 실패");
+  return data.text || "";
+}
+
+// 클라이언트 폴백 OCR (Tesseract.js)
+async function runOcrLocal(file) {
+  $("#ocrStatusText").textContent = "로컬 OCR (Tesseract) 실행 중…";
+  // 가독성 향상을 위해 큰 사이즈로 입력 (Tesseract 는 더 큰 이미지에서 더 잘 동작)
+  const blob = await resizeImage(file, 2200, 0.92);
+  const result = await Tesseract.recognize(blob, "kor+eng", {
     logger: (msg) => {
       if (msg.status === "recognizing text") {
         const pct = Math.round((msg.progress || 0) * 100);
-        $("#ocrStatusText").textContent = `이미지 분석 중… ${pct}%`;
+        $("#ocrStatusText").textContent = `로컬 OCR ${pct}%…`;
       }
     },
   });
   return result.data.text || "";
+}
+
+async function runOcr(file) {
+  // 1순위: 서버 OCR (Google Drive API). 실패 시 Tesseract 로 폴백.
+  try {
+    const text = await runOcrRemote(file);
+    if (text && text.trim().length >= 2) return { text, engine: "drive" };
+    // 빈 결과면 폴백
+  } catch (err) {
+    console.warn("Drive OCR 실패, Tesseract 로 폴백:", err);
+    $("#ocrStatusText").textContent = `Drive OCR 실패 (${err.message}) — Tesseract 폴백…`;
+  }
+  const text = await runOcrLocal(file);
+  return { text, engine: "tesseract" };
 }
 
 // ----- DOM helpers -----
@@ -227,6 +301,32 @@ function filterEntries(entries, mode) {
   return entries.filter((e) => e.castle === mode);
 }
 
+// "yyyy-MM-dd HH:mm" 또는 Date toString 형태 모두 받아서 짧게 정리
+function formatDisplayTime(raw) {
+  if (!raw) return "";
+  // "yyyy-MM-dd HH:mm" 형태가 표준
+  const m = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+  if (m) {
+    const [, y, mo, d, hh, mm] = m;
+    const today = todayKstString();
+    if (`${y}-${mo}-${d}` === today) return `${hh}:${mm}`;
+    return `${mo}-${d} ${hh}:${mm}`;
+  }
+  // Date toString 폴백 (서버가 옛 데이터를 Date 로 저장한 경우)
+  const dObj = new Date(raw);
+  if (!isNaN(dObj.getTime())) {
+    const y = dObj.getFullYear();
+    const mo = pad2(dObj.getMonth() + 1);
+    const d = pad2(dObj.getDate());
+    const hh = pad2(dObj.getHours());
+    const mm = pad2(dObj.getMinutes());
+    const today = todayKstString();
+    if (`${y}-${mo}-${d}` === today) return `${hh}:${mm}`;
+    return `${mo}-${d} ${hh}:${mm}`;
+  }
+  return String(raw).slice(0, 16);
+}
+
 function renderEntries() {
   const mode = $("#castleFilter").value;
   const filtered = filterEntries(cachedEntries, mode)
@@ -241,14 +341,14 @@ function renderEntries() {
     const castle = escapeHtml(e.castle || "");
     const nick = escapeHtml(e.nickname || "");
     const score = escapeHtml(e.score || "");
-    const dt = escapeHtml(e.dateKst || "");
+    const dt = escapeHtml(formatDisplayTime(e.dateKst));
     const note = escapeHtml(e.note || "");
     return `<tr>
       <td><span class="castle-pill pill-${castle}">${castle}</span></td>
-      <td>${nick}</td>
-      <td class="score-cell">${score}</td>
-      <td>${dt}</td>
-      <td>${note}</td>
+      <td class="nick-cell">${nick}</td>
+      <td class="score-cell num">${score}</td>
+      <td class="time-cell">${dt}</td>
+      <td class="note-cell">${note}</td>
     </tr>`;
   }).join("");
 }
@@ -386,18 +486,26 @@ async function handleFile(file) {
   // OCR
   $("#ocrStatus").hidden = false;
   $("#ocrStatusText").textContent = "이미지에서 점수를 읽고 있어요…";
+  $("#rawOcrText").textContent = "";
+  $("#rawOcrSection").hidden = true;
   try {
-    const text = await runOcr(file);
+    const { text, engine } = await runOcr(file);
     const { primary, list } = extractScoreCandidates(text);
     renderCandidates(list, primary);
+    const engLabel = engine === "drive" ? "Drive OCR" : "Tesseract";
     if (primary) {
       $("#score").value = primary;
-      $("#ocrStatusText").textContent = `「참가점수」 라벨에서 ${primary} 인식 ✓`;
+      $("#ocrStatusText").textContent = `${engLabel} → 「참가점수」 라벨에서 ${primary} 인식 ✓`;
     } else if (list.length) {
-      $("#score").value = list[0];
-      $("#ocrStatusText").textContent = `라벨을 못 찾아 보조 후보 ${list.length}개 (가장 큰 값 자동 입력) — 확인 필요`;
+      // 라벨을 못 찾으면 자동 채우지 않음 - 사용자가 칩에서 직접 선택
+      $("#ocrStatusText").textContent = `${engLabel} → 라벨 못 찾음. 아래 후보에서 골라주세요 (${list.length}개) 또는 직접 입력`;
     } else {
-      $("#ocrStatusText").textContent = "점수를 인식하지 못했어요. 직접 입력해 주세요.";
+      $("#ocrStatusText").textContent = `${engLabel} → 점수 인식 실패. 직접 입력해 주세요.`;
+    }
+    // 디버그용 원본 텍스트 표시 (접혀있음)
+    if (text) {
+      $("#rawOcrText").textContent = text;
+      $("#rawOcrSection").hidden = false;
     }
   } catch (err) {
     $("#ocrStatusText").textContent = `OCR 실패: ${err.message}`;
