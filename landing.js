@@ -177,13 +177,10 @@ function renderGrid(members, entries) {
       const s = guildStats(g);
       const isLeader = g === ALLIANCE.leader.guild;
       const url = `siege.html?guild=${encodeURIComponent(g)}`;
-      let meta;
-      if (s.total === 0) {
-        meta = `<span class="guild-meta">미등록</span>`;
-      } else {
-        const submittedClass = s.submitted > 0 ? "submitted-on" : "";
-        meta = `<span class="guild-meta ${submittedClass}">${s.submitted}/${s.total} · ${s.pct}%</span>`;
-      }
+      const submittedClass = s.submitted > 0 ? "submitted-on" : "";
+      const meta = s.total === 0
+        ? `<span class="guild-meta">${s.pct}%</span>`
+        : `<span class="guild-meta ${submittedClass}">총 ${s.total}명 · ${s.pct}%</span>`;
       return `<a href="${url}" class="guild-card ${isLeader ? "is-leader" : ""}">
         <span class="guild-name">${escapeHtml(g)}</span>
         ${meta}
