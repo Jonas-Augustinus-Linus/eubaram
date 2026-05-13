@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>주스터콜 공성신청</title>
-  <link rel="stylesheet" href="styles.css?v=5" />
+  <link rel="stylesheet" href="styles.css?v=6" />
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
 </head>
 <body>
@@ -40,8 +40,18 @@
             <p class="drop-title">사진을 끌어다 놓거나 탭하세요</p>
             <p class="drop-sub">PC: 드래그&드롭 · 모바일: 갤러리 또는 카메라</p>
           </div>
-          <img id="preview" alt="" hidden />
         </label>
+        <div id="previewWrap" class="preview-wrap" hidden>
+          <img id="preview" alt="" />
+          <div id="cropOverlay" class="crop-overlay" hidden>
+            <div id="cropHint" class="crop-hint">점수 숫자만 드래그로 감싸세요</div>
+            <div id="cropRect" class="crop-rect" hidden></div>
+          </div>
+        </div>
+        <div class="preview-actions" id="previewActions" hidden>
+          <button type="button" class="ghost small-btn" id="cropBtn">🔍 점수 영역 직접 선택</button>
+          <button type="button" class="ghost small-btn" id="clearImgBtn">✕ 이미지 제거</button>
+        </div>
       </div>
 
       <div class="ocr-status" id="ocrStatus" hidden>
@@ -149,6 +159,6 @@
     </small>
   </footer>
 
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

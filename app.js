@@ -172,6 +172,49 @@ async function resizeImage(file, maxDim = 1600, quality = 0.85) {
   return out;
 }
 
+// OCR 용 전처리: 스케일업 + 그레이스케일 + 대비 향상.
+// 게임 UI 같은 어두운 배경/장식 폰트도 더 잘 인식되도록.
+async function preprocessForOcr(file, targetLong = 2400, contrast = 1.6) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = reject;
+    fr.readAsDataURL(file);
+  });
+  const img = await new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.src = dataUrl;
+  });
+  // 스케일: 긴 변을 targetLong 로. 너무 큰 이미지는 줄이지 않고 그대로.
+  const longSide = Math.max(img.width, img.height);
+  const scale = longSide < targetLong ? targetLong / longSide : 1;
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, w, h);
+
+  // 그레이스케일 + 대비 향상
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const px = imgData.data;
+  for (let i = 0; i < px.length; i += 4) {
+    const gray = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+    let v = (gray - 128) * contrast + 128;
+    if (v < 0) v = 0;
+    else if (v > 255) v = 255;
+    px[i] = px[i + 1] = px[i + 2] = v;
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+}
+
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
@@ -204,34 +247,34 @@ async function runOcrRemote(file) {
   return data.text || "";
 }
 
-// 클라이언트 폴백 OCR (Tesseract.js)
+// 클라이언트 폴백 OCR (Tesseract.js) - 전처리 후 실행, 단어 레벨 데이터까지 추출
 async function runOcrLocal(file) {
-  $("#ocrStatusText").textContent = "로컬 OCR (Tesseract) 실행 중…";
-  // 가독성 향상을 위해 큰 사이즈로 입력 (Tesseract 는 더 큰 이미지에서 더 잘 동작)
-  const blob = await resizeImage(file, 2200, 0.92);
+  $("#ocrStatusText").textContent = "이미지 전처리 중…";
+  const blob = await preprocessForOcr(file, 2400, 1.6);
+  $("#ocrStatusText").textContent = "Tesseract OCR 실행 중…";
   const result = await Tesseract.recognize(blob, "kor+eng", {
     logger: (msg) => {
       if (msg.status === "recognizing text") {
         const pct = Math.round((msg.progress || 0) * 100);
-        $("#ocrStatusText").textContent = `로컬 OCR ${pct}%…`;
+        $("#ocrStatusText").textContent = `Tesseract OCR ${pct}%…`;
       }
     },
   });
-  return result.data.text || "";
+  const text = result.data.text || "";
+  // 단어 레벨 데이터 (높은 신뢰도 단어만)
+  const words = (result.data.words || [])
+    .filter((w) => w.confidence > 50)
+    .map((w) => w.text);
+  return { text, words };
 }
 
+// Drive 가 분당 ~1-5회로 매우 짠 제한이라 기본은 Tesseract 만 사용.
+// 'drive' 엔진을 명시적으로 호출하려면 별도 동작 필요 (현재 비활성).
 async function runOcr(file) {
-  // 1순위: 서버 OCR (Google Drive API). 실패 시 Tesseract 로 폴백.
-  try {
-    const text = await runOcrRemote(file);
-    if (text && text.trim().length >= 2) return { text, engine: "drive" };
-    // 빈 결과면 폴백
-  } catch (err) {
-    console.warn("Drive OCR 실패, Tesseract 로 폴백:", err);
-    $("#ocrStatusText").textContent = `Drive OCR 실패 (${err.message}) — Tesseract 폴백…`;
-  }
-  const text = await runOcrLocal(file);
-  return { text, engine: "tesseract" };
+  const { text, words } = await runOcrLocal(file);
+  // 단어 후보들도 텍스트에 합쳐서 (extractScoreCandidates 가 정수/소수 추출하게)
+  const combinedText = text + "\n" + (words || []).join(" ");
+  return { text: combinedText, engine: "tesseract" };
 }
 
 // ----- DOM helpers -----
@@ -467,17 +510,21 @@ function askConfirm(detail) {
 
 // ----- File / OCR handling -----
 
+let lastUploadedFile = null;
+
 async function handleFile(file) {
   if (!file || !file.type.startsWith("image/")) {
     setMessage("이미지 파일만 가능합니다", "error");
     return;
   }
+  lastUploadedFile = file;
   // preview
   const reader = new FileReader();
   reader.onload = (e) => {
     const img = $("#preview");
     img.src = e.target.result;
-    img.hidden = false;
+    $("#previewWrap").hidden = false;
+    $("#previewActions").hidden = false;
   };
   reader.readAsDataURL(file);
 
@@ -490,15 +537,16 @@ async function handleFile(file) {
     const { text, engine } = await runOcr(file);
     const { primary, list } = extractScoreCandidates(text);
     renderCandidates(list, primary);
-    const engLabel = engine === "drive" ? "Drive OCR" : "Tesseract";
     if (primary) {
       $("#score").value = primary;
-      $("#ocrStatusText").textContent = `${engLabel} → 「참가점수」 라벨에서 ${primary} 인식 ✓`;
+      $("#ocrStatusText").textContent = `「참가점수」 라벨에서 ${primary} 인식 ✓`;
     } else if (list.length) {
       // 라벨을 못 찾으면 자동 채우지 않음 - 사용자가 칩에서 직접 선택
-      $("#ocrStatusText").textContent = `${engLabel} → 라벨 못 찾음. 아래 후보에서 골라주세요 (${list.length}개) 또는 직접 입력`;
+      $("#ocrStatusText").innerHTML = `숫자 후보 ${list.length}개 인식됨. 아래에서 선택하거나, <button type="button" class="link-btn-inline" id="cropTrigger">점수 영역만 직접 선택</button>해 보세요.`;
+      $("#cropTrigger")?.addEventListener("click", () => startCropMode());
     } else {
-      $("#ocrStatusText").textContent = `${engLabel} → 점수 인식 실패. 직접 입력해 주세요.`;
+      $("#ocrStatusText").innerHTML = `점수 인식 실패. <button type="button" class="link-btn-inline" id="cropTrigger">점수 영역만 직접 선택</button>해 보세요. 또는 직접 입력.`;
+      $("#cropTrigger")?.addEventListener("click", () => startCropMode());
     }
     // 디버그용 원본 텍스트 표시 (접혀있음)
     if (text) {
@@ -507,6 +555,185 @@ async function handleFile(file) {
     }
   } catch (err) {
     $("#ocrStatusText").textContent = `OCR 실패: ${err.message}`;
+  }
+}
+
+// ----- Crop mode (사용자가 점수 영역을 직접 선택) -----
+
+let cropState = null;
+
+function startCropMode() {
+  if (!lastUploadedFile) {
+    setMessage("먼저 이미지를 업로드해 주세요", "error");
+    return;
+  }
+  const overlay = $("#cropOverlay");
+  const rect = $("#cropRect");
+  rect.hidden = true;
+  rect.style.left = "0px";
+  rect.style.top = "0px";
+  rect.style.width = "0px";
+  rect.style.height = "0px";
+  overlay.hidden = false;
+  cropState = { startX: 0, startY: 0, curX: 0, curY: 0, dragging: false };
+  setMessage("점수 숫자를 드래그로 감싸세요", "");
+}
+
+function endCropMode() {
+  const overlay = $("#cropOverlay");
+  overlay.hidden = true;
+  cropState = null;
+}
+
+function getCropPointer(e) {
+  const overlay = $("#cropOverlay");
+  const r = overlay.getBoundingClientRect();
+  const t = e.touches && e.touches[0];
+  const cx = t ? t.clientX : e.clientX;
+  const cy = t ? t.clientY : e.clientY;
+  return { x: cx - r.left, y: cy - r.top };
+}
+
+function onCropDown(e) {
+  if (!cropState) return;
+  e.preventDefault();
+  const p = getCropPointer(e);
+  cropState.dragging = true;
+  cropState.startX = p.x;
+  cropState.startY = p.y;
+  cropState.curX = p.x;
+  cropState.curY = p.y;
+  updateCropRect();
+}
+
+function onCropMove(e) {
+  if (!cropState || !cropState.dragging) return;
+  e.preventDefault();
+  const p = getCropPointer(e);
+  cropState.curX = p.x;
+  cropState.curY = p.y;
+  updateCropRect();
+}
+
+async function onCropUp(e) {
+  if (!cropState || !cropState.dragging) return;
+  cropState.dragging = false;
+  const rect = $("#cropRect");
+  const w = Math.abs(cropState.curX - cropState.startX);
+  const h = Math.abs(cropState.curY - cropState.startY);
+  if (w < 12 || h < 8) {
+    // 너무 작은 영역 - 무시
+    setMessage("선택 영역이 너무 작아요. 다시 드래그해 주세요", "error");
+    return;
+  }
+  await runCropOcr();
+}
+
+function updateCropRect() {
+  if (!cropState) return;
+  const rect = $("#cropRect");
+  const x = Math.min(cropState.startX, cropState.curX);
+  const y = Math.min(cropState.startY, cropState.curY);
+  const w = Math.abs(cropState.curX - cropState.startX);
+  const h = Math.abs(cropState.curY - cropState.startY);
+  rect.style.left = x + "px";
+  rect.style.top = y + "px";
+  rect.style.width = w + "px";
+  rect.style.height = h + "px";
+  rect.hidden = false;
+}
+
+async function runCropOcr() {
+  if (!cropState || !lastUploadedFile) return;
+  const preview = $("#preview");
+  const overlay = $("#cropOverlay");
+  const ovRect = overlay.getBoundingClientRect();
+  const x0 = Math.min(cropState.startX, cropState.curX);
+  const y0 = Math.min(cropState.startY, cropState.curY);
+  const w0 = Math.abs(cropState.curX - cropState.startX);
+  const h0 = Math.abs(cropState.curY - cropState.startY);
+
+  // 표시 좌표 → 원본 이미지 좌표 변환
+  const imgEl = preview;
+  const scaleX = imgEl.naturalWidth / ovRect.width;
+  const scaleY = imgEl.naturalHeight / ovRect.height;
+  const cropX = Math.max(0, Math.round(x0 * scaleX));
+  const cropY = Math.max(0, Math.round(y0 * scaleY));
+  const cropW = Math.round(w0 * scaleX);
+  const cropH = Math.round(h0 * scaleY);
+
+  // 원본 이미지를 로드해서 크롭
+  const imgUrl = preview.src;
+  const fullImg = await new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.src = imgUrl;
+  });
+
+  // 크롭 영역을 충분히 크게 (긴 변 ~ 800px) 업스케일
+  const targetLong = 800;
+  const scale = targetLong / Math.max(cropW, cropH);
+  const outW = Math.round(cropW * scale);
+  const outH = Math.round(cropH * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = outW;
+  canvas.height = outH;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(fullImg, cropX, cropY, cropW, cropH, 0, 0, outW, outH);
+
+  // 그레이스케일 + 대비 향상
+  const imgData = ctx.getImageData(0, 0, outW, outH);
+  const px = imgData.data;
+  for (let i = 0; i < px.length; i += 4) {
+    const g = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+    let v = (g - 128) * 1.8 + 128;
+    if (v < 0) v = 0;
+    else if (v > 255) v = 255;
+    px[i] = px[i + 1] = px[i + 2] = v;
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
+
+  endCropMode();
+  $("#ocrStatus").hidden = false;
+  $("#ocrStatusText").textContent = "선택 영역 OCR 실행 중…";
+
+  try {
+    // 숫자/소수점 위주로 인식 - 디지트 화이트리스트
+    const result = await Tesseract.recognize(blob, "eng", {
+      logger: (msg) => {
+        if (msg.status === "recognizing text") {
+          const pct = Math.round((msg.progress || 0) * 100);
+          $("#ocrStatusText").textContent = `선택 영역 OCR ${pct}%…`;
+        }
+      },
+      // tessjs 5.x: tessedit_char_whitelist not always honored, but try
+    });
+    const text = result.data.text || "";
+    const words = (result.data.words || [])
+      .filter((w) => w.confidence > 30)
+      .map((w) => w.text)
+      .join(" ");
+    const combined = text + "\n" + words;
+    const { primary, list } = extractScoreCandidates(combined);
+    renderCandidates(list, primary || (list[0] || null));
+    const pick = primary || list[0];
+    if (pick) {
+      $("#score").value = pick;
+      $("#ocrStatusText").textContent = `선택 영역에서 ${pick} 인식 ✓`;
+    } else {
+      $("#ocrStatusText").textContent = "선택 영역에서 숫자를 찾지 못했어요. 다시 선택하거나 직접 입력해 주세요.";
+    }
+    if (combined.trim()) {
+      $("#rawOcrText").textContent = "[크롭 영역 OCR]\n" + combined;
+      $("#rawOcrSection").hidden = false;
+    }
+  } catch (err) {
+    $("#ocrStatusText").textContent = `크롭 OCR 실패: ${err.message}`;
   }
 }
 
@@ -573,6 +800,29 @@ function init() {
   $("#submitBtn").addEventListener("click", handleSubmit);
   $("#refreshBtn").addEventListener("click", refreshEntries);
   $("#castleFilter").addEventListener("change", renderEntries);
+
+  // 점수 영역 직접 선택 (크롭) 모드
+  $("#cropBtn")?.addEventListener("click", startCropMode);
+  $("#clearImgBtn")?.addEventListener("click", () => {
+    lastUploadedFile = null;
+    $("#preview").src = "";
+    $("#previewWrap").hidden = true;
+    $("#previewActions").hidden = true;
+    $("#ocrStatus").hidden = true;
+    $("#candidatesField").hidden = true;
+    $("#rawOcrSection").hidden = true;
+    $("#fileInput").value = "";
+  });
+  const cropOverlay = $("#cropOverlay");
+  if (cropOverlay) {
+    cropOverlay.addEventListener("mousedown", onCropDown);
+    cropOverlay.addEventListener("mousemove", onCropMove);
+    cropOverlay.addEventListener("mouseup", onCropUp);
+    cropOverlay.addEventListener("mouseleave", onCropUp);
+    cropOverlay.addEventListener("touchstart", onCropDown, { passive: false });
+    cropOverlay.addEventListener("touchmove", onCropMove, { passive: false });
+    cropOverlay.addEventListener("touchend", onCropUp);
+  }
 
   $("#openConfig").addEventListener("click", (e) => {
     e.preventDefault();
