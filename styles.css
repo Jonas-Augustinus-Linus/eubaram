@@ -31,6 +31,9 @@
 
 * { box-sizing: border-box; }
 
+/* hidden 속성을 모든 display 보다 우선 */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   padding: 0;
