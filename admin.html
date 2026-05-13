@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#003399" />
   <title>주스터콜 · 관리자 대시보드</title>
-  <link rel="stylesheet" href="styles.css?v=9" />
-  <link rel="stylesheet" href="admin.css?v=9" />
+  <link rel="stylesheet" href="styles.css?v=12" />
+  <link rel="stylesheet" href="admin.css?v=12" />
 </head>
 <body class="admin-body">
   <header class="site-header admin-header">
@@ -43,7 +43,7 @@
   <dialog id="loginDialog" class="dialog">
     <form method="dialog" id="loginForm">
       <h3>🔐 관리자 로그인</h3>
-      <p class="hint">관리자 비밀번호를 입력해 주세요.</p>
+      <p class="hint">관리자 비밀번호를 입력해 주세요. (초기 비밀번호: <code>1234</code>)</p>
       <input type="password" id="pwInput" placeholder="비밀번호" required autocomplete="current-password" />
       <p class="hint error" id="loginError" hidden>비밀번호가 틀렸습니다</p>
       <menu>
@@ -176,6 +176,63 @@
         <div class="member-list" id="memberList"></div>
       </div>
     </section>
+
+    <!-- 성주 현황 관리 -->
+    <section class="card">
+      <h2>👑 성주 현황 관리</h2>
+      <p class="hint">현재 4개 성의 성주를 지정합니다. 닉네임을 비우고 저장하면 미점령 상태로 변경됩니다.</p>
+      <div class="castle-lord-form" id="castleLordForm">
+        <div class="cl-row" data-castle="주작성">
+          <div class="cl-label">🔴 주작성</div>
+          <input type="text" data-field="nickname" placeholder="성주 닉네임" maxlength="20" />
+          <input type="text" data-field="guild" placeholder="문파" maxlength="20" list="guildOptions" />
+          <button type="button" class="primary small-btn" data-action="save">저장</button>
+        </div>
+        <div class="cl-row" data-castle="현무성">
+          <div class="cl-label">🔵 현무성</div>
+          <input type="text" data-field="nickname" placeholder="성주 닉네임" maxlength="20" />
+          <input type="text" data-field="guild" placeholder="문파" maxlength="20" list="guildOptions" />
+          <button type="button" class="primary small-btn" data-action="save">저장</button>
+        </div>
+        <div class="cl-row" data-castle="청룡성">
+          <div class="cl-label">🟢 청룡성</div>
+          <input type="text" data-field="nickname" placeholder="성주 닉네임" maxlength="20" />
+          <input type="text" data-field="guild" placeholder="문파" maxlength="20" list="guildOptions" />
+          <button type="button" class="primary small-btn" data-action="save">저장</button>
+        </div>
+        <div class="cl-row" data-castle="백호성">
+          <div class="cl-label">⚪ 백호성</div>
+          <input type="text" data-field="nickname" placeholder="성주 닉네임" maxlength="20" />
+          <input type="text" data-field="guild" placeholder="문파" maxlength="20" list="guildOptions" />
+          <button type="button" class="primary small-btn" data-action="save">저장</button>
+        </div>
+      </div>
+      <datalist id="guildOptions"></datalist>
+    </section>
+
+    <!-- 연합 지침 편집 -->
+    <section class="card">
+      <h2>📜 연합 지침사항 편집</h2>
+      <p class="hint">랜딩 페이지에서 "연합 지침사항 열람" 으로 누구나 볼 수 있습니다. 빈 줄로 단락 구분 가능.</p>
+      <textarea id="guidelinesArea" rows="10" placeholder="예) 1. 공성 점수 인증은 매주 월~목 23:30 까지...&#10;2. 정예 참전 여부는 반드시 선택...&#10;..."></textarea>
+      <div class="actions" style="display:flex; gap:8px; margin-top:8px;">
+        <button type="button" class="ghost" id="reloadGuidelinesBtn">기존 불러오기</button>
+        <button type="button" class="primary" id="saveGuidelinesBtn">저장</button>
+      </div>
+      <p class="hint" id="guidelinesMsg"></p>
+    </section>
+
+    <!-- 보안 설정 -->
+    <section class="card">
+      <h2>🔐 비밀번호 변경</h2>
+      <p class="hint">관리자 비밀번호를 변경합니다. 변경 후엔 새 비밀번호로 다시 로그인해야 합니다.</p>
+      <div class="pw-change">
+        <input type="password" id="newPwInput" placeholder="새 비밀번호 (3자 이상)" minlength="3" maxlength="64" />
+        <input type="password" id="newPwConfirm" placeholder="새 비밀번호 확인" minlength="3" maxlength="64" />
+        <button type="button" class="primary" id="changePwBtn">변경</button>
+      </div>
+      <p class="hint" id="pwChangeMsg"></p>
+    </section>
   </main>
 
   <footer class="site-footer">
@@ -186,6 +243,6 @@
     </div>
   </footer>
 
-  <script src="admin.js?v=9"></script>
+  <script src="admin.js?v=12"></script>
 </body>
 </html>

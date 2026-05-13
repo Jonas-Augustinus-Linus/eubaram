@@ -64,40 +64,45 @@
   gap: 18px;
 }
 
-/* Stats banner */
-.stats-banner { padding: 16px 20px; }
-
-.stats-row {
+/* 참전 문파 카드 */
+.participating-card h2 { margin: 0 0 12px; font-size: 16px; }
+.participating-list {
   display: flex;
-  align-items: center;
-  justify-content: space-around;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
-.stat-item { text-align: center; flex: 1; }
-
-.stat-num {
-  font-size: 24px;
-  font-weight: 800;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
+.participating-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  transition: border-color 0.12s, background 0.12s, transform 0.05s;
 }
 
-.stat-lbl {
+.participating-pill:hover {
+  border-color: var(--accent);
+  background: var(--panel-3);
+  transform: translateY(-1px);
+}
+
+.participating-fam { font-size: 11px; color: var(--muted); }
+
+.participating-pct {
   font-size: 11px;
-  color: var(--muted);
-  margin-top: 2px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--success);
+  font-weight: 700;
+  background: rgba(46, 160, 67, 0.15);
+  padding: 1px 7px;
+  border-radius: 999px;
 }
-
-.stat-divider {
-  width: 1px;
-  height: 32px;
-  background: var(--border);
-}
-
-.progress-bar.small { height: 6px; margin-top: 12px; }
 
 /* Select prompt */
 .select-prompt { text-align: center; margin: 8px 0 4px; }
@@ -149,6 +154,45 @@
 .family-card.is-leader .family-name::after {
   content: " 👑";
   font-size: 14px;
+}
+
+.family-card.has-castle {
+  border-color: rgba(255, 184, 74, 0.4);
+  background: linear-gradient(180deg, rgba(255, 184, 74, 0.06) 0%, var(--panel) 60%);
+}
+
+.family-title { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.family-castle-line { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.family-castle-badge {
+  display: inline-block;
+  padding: 2px 9px;
+  background: linear-gradient(135deg, rgba(255, 184, 74, 0.18), rgba(255, 126, 60, 0.14));
+  border: 1px solid rgba(255, 184, 74, 0.45);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.castle-lord-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #ffb84a, #ff7e3c);
+  color: #2a1900;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  margin: 2px 0;
+  box-shadow: 0 1px 4px rgba(255, 126, 60, 0.35);
+}
+
+.guild-card.is-castle-lord {
+  background: linear-gradient(135deg, rgba(255, 184, 74, 0.16), rgba(0, 51, 153, 0.06));
+  border-color: rgba(255, 184, 74, 0.55);
 }
 
 .family-stats {
@@ -236,4 +280,95 @@
 
 .guild-meta.submitted-on {
   color: var(--success);
+}
+
+/* ===== 성주 현황 ===== */
+.castle-lords-card { padding: 18px 20px; }
+.castle-lords-card h2 { margin: 0 0 14px; font-size: 16px; }
+
+.castle-lord-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (min-width: 720px) {
+  .castle-lord-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+.castle-lord-cell {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.cl-castle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 4px;
+  letter-spacing: 0.3px;
+}
+
+.cl-lord {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.cl-lord.empty { color: var(--muted-2); font-weight: 500; font-style: italic; font-size: 13px; }
+
+.cl-lord-guild { font-size: 11px; color: var(--muted); font-weight: 500; margin-top: 2px; }
+
+/* ===== 연합 지침 ===== */
+.guidelines-card { padding: 0; overflow: hidden; }
+
+.guidelines-card summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.guidelines-card summary::-webkit-details-marker { display: none; }
+
+.guidelines-card summary::after {
+  content: "▼";
+  font-size: 12px;
+  color: var(--muted);
+  transition: transform 0.2s;
+}
+
+.guidelines-card[open] summary::after { transform: rotate(180deg); }
+
+.guidelines-card summary:hover { background: var(--panel-2); }
+
+.guidelines-content {
+  padding: 0 20px 20px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.guidelines-content .hint { color: var(--muted); font-style: italic; }
+
+.guidelines-updated {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
 }

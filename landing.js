@@ -93,6 +93,75 @@ async function apiMembers() {
   } catch { return []; }
 }
 
+async function apiCastleLords() {
+  try {
+    const res = await fetch(`${getEndpoint()}?action=castleLords`);
+    if (!res.ok) return {};
+    const d = await res.json();
+    return d.lords || {};
+  } catch { return {}; }
+}
+
+async function apiGuidelines() {
+  try {
+    const res = await fetch(`${getEndpoint()}?action=guidelines`);
+    if (!res.ok) return "";
+    const d = await res.json();
+    return d.text || "";
+  } catch { return ""; }
+}
+
+function renderCastleLords(lords) {
+  const castles = ["주작성", "현무성", "청룡성", "백호성"];
+  castles.forEach((c) => {
+    const cell = document.querySelector(`#lord-${c}`);
+    if (!cell) return;
+    const lord = lords[c];
+    if (lord && lord.nickname) {
+      cell.classList.remove("empty");
+      cell.innerHTML = `${escapeHtml(lord.nickname)}${lord.guild ? `<div class="cl-lord-guild">${escapeHtml(lord.guild)}</div>` : ""}`;
+    } else {
+      cell.classList.add("empty");
+      cell.textContent = "(미점령)";
+    }
+  });
+}
+
+function renderParticipating(guilds, guildStats) {
+  const wrap = document.querySelector("#participatingList");
+  if (!wrap) return;
+  if (!guilds.length) {
+    wrap.innerHTML = `<span class="hint">아직 이번주 신청 문파가 없습니다</span>`;
+    return;
+  }
+  // 정렬: 신청률 높은 순
+  const sorted = guilds.slice().sort((a, b) => {
+    const sa = guildStats(a).pct;
+    const sb = guildStats(b).pct;
+    return sb - sa;
+  });
+  wrap.innerHTML = sorted.map((g) => {
+    const s = guildStats(g);
+    const fam = ALLIANCE.families.find((f) => f.guilds.includes(g));
+    const famLabel = fam ? `<span class="participating-fam">${escapeHtml(fam.name)}</span>` : "";
+    return `<a class="participating-pill" href="siege.html?guild=${encodeURIComponent(g)}">
+      <span class="participating-guild">${escapeHtml(g)}</span>
+      ${famLabel}
+      ${s.total > 0 ? `<span class="participating-pct">${s.pct}%</span>` : ""}
+    </a>`;
+  }).join("");
+}
+
+function renderGuidelines(text) {
+  const c = document.querySelector("#guidelinesContent");
+  if (!c) return;
+  if (!text || !text.trim()) {
+    c.innerHTML = `<p class="hint">지침이 아직 등록되지 않았습니다.</p>`;
+    return;
+  }
+  c.innerHTML = `<div>${escapeHtml(text)}</div>`;
+}
+
 // ---- This week range (KST) ----
 
 function thisWeekRange() {
@@ -126,10 +195,24 @@ function bestPerNick(entries) {
   return map;
 }
 
-function renderGrid(members, entries) {
+// 어떤 성을 어떤 문파가 차지하고 있는지 매핑
+function castlesByGuild(lords) {
+  const map = new Map();
+  Object.entries(lords || {}).forEach(([castle, info]) => {
+    if (info && info.guild) {
+      const g = info.guild;
+      if (!map.has(g)) map.set(g, []);
+      map.get(g).push(castle);
+    }
+  });
+  return map;
+}
+
+function renderGrid(members, entries, lords) {
   const range = thisWeekRange();
   const weekEntries = entries.filter((e) => inRange(e.dateKst, range.start, range.end));
   const bestMap = bestPerNick(weekEntries);
+  const castleMap = castlesByGuild(lords || {});
 
   // members 를 문파별로 그룹
   const byGuild = new Map();
@@ -151,19 +234,24 @@ function renderGrid(members, entries) {
     return { total: list.length, submitted, pct };
   }
 
-  // 총합 (전체 KPI)
-  let totalAll = 0;
-  let submittedAll = 0;
-  ALLIANCE.families.forEach((f) => f.guilds.forEach((g) => {
-    const s = guildStats(g);
-    totalAll += s.total;
-    submittedAll += s.submitted;
-  }));
-  const pctAll = totalAll > 0 ? Math.round((submittedAll / totalAll) * 100) : 0;
-  $("#statSubmitted").textContent = submittedAll;
-  $("#statTotal").textContent = totalAll || "-";
-  $("#statPct").textContent = `${pctAll}%`;
-  $("#statFill").style.width = `${pctAll}%`;
+  // 이번주 참전 문파 목록 (1건이라도 신청한 문파)
+  const participatingGuilds = new Set();
+  weekEntries.forEach((e) => {
+    if (e.guild) participatingGuilds.add(e.guild.trim());
+  });
+  // entries 에 guild 가 없을 수도 있으므로 (구 데이터), 닉네임 → 문파 매핑으로도 보완
+  const nickToGuild = new Map();
+  members.forEach((m) => {
+    const k = (m.nickname || "").trim().toLowerCase();
+    if (k && m.guild) nickToGuild.set(k, m.guild);
+  });
+  weekEntries.forEach((e) => {
+    if (!e.guild) {
+      const g = nickToGuild.get((e.nickname || "").trim().toLowerCase());
+      if (g) participatingGuilds.add(g);
+    }
+  });
+  renderParticipating(Array.from(participatingGuilds), guildStats);
 
   // 그리드
   const grid = $("#familyGrid");
@@ -173,24 +261,39 @@ function renderGrid(members, entries) {
     const famSubmitted = fam.guilds.reduce((acc, g) => acc + (guildStats(g).submitted || 0), 0);
     const famPct = famTotal > 0 ? Math.round((famSubmitted / famTotal) * 100) : 0;
 
+    // 이 계에 속한 문파가 차지한 성들
+    const famCastles = [];
+    fam.guilds.forEach((g) => {
+      const cs = castleMap.get(g);
+      if (cs) cs.forEach((c) => famCastles.push({ guild: g, castle: c }));
+    });
+
     const guildCards = fam.guilds.map((g) => {
       const s = guildStats(g);
       const isLeader = g === ALLIANCE.leader.guild;
+      const myCastles = castleMap.get(g) || [];
       const url = `siege.html?guild=${encodeURIComponent(g)}`;
       const submittedClass = s.submitted > 0 ? "submitted-on" : "";
-      const meta = s.total === 0
-        ? `<span class="guild-meta">${s.pct}%</span>`
-        : `<span class="guild-meta ${submittedClass}">총 ${s.total}명 · ${s.pct}%</span>`;
-      return `<a href="${url}" class="guild-card ${isLeader ? "is-leader" : ""}">
+      const meta = `<span class="guild-meta ${submittedClass}">총원 ${s.total} · 신청률 ${s.pct}%</span>`;
+      const castleBadges = myCastles.map((c) => `<span class="castle-lord-badge">🏰 ${escapeHtml(c)}주</span>`).join("");
+      return `<a href="${url}" class="guild-card ${isLeader ? "is-leader" : ""} ${myCastles.length ? "is-castle-lord" : ""}">
         <span class="guild-name">${escapeHtml(g)}</span>
+        ${castleBadges}
         ${meta}
       </a>`;
     }).join("");
 
+    const famCastleLabel = famCastles.length
+      ? famCastles.map((x) => `<span class="family-castle-badge">🏰 ${escapeHtml(x.castle)}주 (${escapeHtml(x.guild)})</span>`).join(" ")
+      : "";
+
     return `
-      <div class="family-card ${isLeaderFam ? "is-leader" : ""}" data-family="${escapeHtml(fam.name)}">
+      <div class="family-card ${isLeaderFam ? "is-leader" : ""} ${famCastles.length ? "has-castle" : ""}" data-family="${escapeHtml(fam.name)}">
         <div class="family-header">
-          <span class="family-name">${escapeHtml(fam.name)}</span>
+          <div class="family-title">
+            <span class="family-name">${escapeHtml(fam.name)}</span>
+            ${famCastleLabel ? `<div class="family-castle-line">${famCastleLabel}</div>` : ""}
+          </div>
           <span class="family-stats">
             <span class="family-pct">${famPct}%</span>
             <span>${famSubmitted}/${famTotal || "-"}</span>
@@ -221,10 +324,14 @@ async function init() {
   setInterval(renderTodayBanner, 60 * 1000);
 
   // skeleton 렌더 (members/entries 없이도 그리드는 보임)
-  renderGrid([], []);
+  renderGrid([], [], {});
 
-  const [members, entries] = await Promise.all([apiMembers(), apiList()]);
-  renderGrid(members, entries);
+  const [members, entries, lords, guidelines] = await Promise.all([
+    apiMembers(), apiList(), apiCastleLords(), apiGuidelines(),
+  ]);
+  renderGrid(members, entries, lords);
+  renderCastleLords(lords);
+  renderGuidelines(guidelines);
 }
 
 document.addEventListener("DOMContentLoaded", init);

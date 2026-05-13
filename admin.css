@@ -242,3 +242,74 @@
   letter-spacing: 2px;
   text-align: center;
 }
+
+/* ===== 비밀번호 변경 ===== */
+.pw-change {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .pw-change { grid-template-columns: 1fr; }
+}
+
+.pw-change input {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+}
+.pw-change input:focus { border-color: var(--accent); }
+
+/* ===== 성주 현황 관리 ===== */
+.castle-lord-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cl-row {
+  display: grid;
+  grid-template-columns: 100px 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+@media (max-width: 600px) {
+  .cl-row { grid-template-columns: 1fr 1fr; }
+  .cl-row .cl-label { grid-column: 1 / -1; }
+  .cl-row button { grid-column: 1 / -1; }
+}
+
+.cl-label { font-weight: 700; font-size: 14px; }
+
+.cl-row input {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 14px;
+  outline: none;
+}
+.cl-row input:focus { border-color: var(--accent); }
+
+/* ===== 지침 편집 ===== */
+#guidelinesArea {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif;
+  font-size: 14px;
+  resize: vertical;
+  outline: none;
+  line-height: 1.6;
+}
+#guidelinesArea:focus { border-color: var(--accent); }

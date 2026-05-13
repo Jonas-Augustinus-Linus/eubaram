@@ -463,6 +463,21 @@ function init() {
     if (e.key === "Enter") { e.preventDefault(); handleAddMember(); }
   });
 
+  // 성주 현황
+  $$("#castleLordForm [data-action='save']").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const row = btn.closest(".cl-row");
+      if (row) saveCastleLord(row.dataset.castle);
+    });
+  });
+
+  // 지침
+  document.querySelector("#saveGuidelinesBtn")?.addEventListener("click", saveGuidelines);
+  document.querySelector("#reloadGuidelinesBtn")?.addEventListener("click", loadGuidelines);
+
+  // 비밀번호 변경
+  document.querySelector("#changePwBtn")?.addEventListener("click", changeAdminPw);
+
   // 로그인 상태 확인
   if (getPassword()) {
     tryLogin(getPassword()).then((ok) => {

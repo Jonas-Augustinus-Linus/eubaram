@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#003399" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>EU연합 통합시스템</title>
-  <link rel="stylesheet" href="styles.css?v=11" />
-  <link rel="stylesheet" href="landing.css?v=11" />
+  <link rel="stylesheet" href="styles.css?v=12" />
+  <link rel="stylesheet" href="landing.css?v=12" />
 </head>
 <body class="landing-body">
   <header class="landing-hero">
@@ -39,25 +39,29 @@
   </header>
 
   <main class="landing-main">
-    <section class="card stats-banner" id="statsBanner">
-      <div class="stats-row">
-        <div class="stat-item">
-          <div class="stat-num" id="statSubmitted">-</div>
-          <div class="stat-lbl">이번주 신청</div>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <div class="stat-num" id="statTotal">-</div>
-          <div class="stat-lbl">총 문원</div>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <div class="stat-num" id="statPct">-</div>
-          <div class="stat-lbl">진행률</div>
-        </div>
+    <section class="card participating-card" id="participatingCard">
+      <h2>⚔️ 이번주 참전 문파</h2>
+      <div class="participating-list" id="participatingList">
+        <span class="hint">로딩 중…</span>
       </div>
-      <div class="progress-bar small"><div class="progress-fill" id="statFill"></div></div>
     </section>
+
+    <section class="card castle-lords-card">
+      <h2>👑 현재 성주 현황</h2>
+      <div class="castle-lord-grid" id="castleLordGrid">
+        <div class="castle-lord-cell" data-castle="주작성"><div class="cl-castle">🔴 주작성</div><div class="cl-lord" id="lord-주작성">-</div></div>
+        <div class="castle-lord-cell" data-castle="현무성"><div class="cl-castle">🔵 현무성</div><div class="cl-lord" id="lord-현무성">-</div></div>
+        <div class="castle-lord-cell" data-castle="청룡성"><div class="cl-castle">🟢 청룡성</div><div class="cl-lord" id="lord-청룡성">-</div></div>
+        <div class="castle-lord-cell" data-castle="백호성"><div class="cl-castle">⚪ 백호성</div><div class="cl-lord" id="lord-백호성">-</div></div>
+      </div>
+    </section>
+
+    <details class="card guidelines-card" id="guidelinesCard">
+      <summary>📜 연합 지침사항 열람</summary>
+      <div class="guidelines-content" id="guidelinesContent">
+        <p class="hint">지침이 아직 등록되지 않았습니다. 관리자가 등록할 때까지 기다려 주세요.</p>
+      </div>
+    </details>
 
     <section class="select-prompt">
       <h2>문파를 선택해 주세요</h2>
@@ -79,6 +83,6 @@
     </div>
   </footer>
 
-  <script src="landing.js?v=11"></script>
+  <script src="landing.js?v=12"></script>
 </body>
 </html>
