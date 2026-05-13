@@ -274,15 +274,14 @@
 
 .cl-row {
   display: grid;
-  grid-template-columns: 100px 1fr 1fr auto;
+  grid-template-columns: 100px 1fr auto;
   gap: 8px;
   align-items: center;
 }
 
 @media (max-width: 600px) {
-  .cl-row { grid-template-columns: 1fr 1fr; }
+  .cl-row { grid-template-columns: 1fr auto; }
   .cl-row .cl-label { grid-column: 1 / -1; }
-  .cl-row button { grid-column: 1 / -1; }
 }
 
 .cl-label { font-weight: 700; font-size: 14px; }
@@ -313,3 +312,118 @@
   line-height: 1.6;
 }
 #guidelinesArea:focus { border-color: var(--accent); }
+
+/* ===== 스코프 태그 (헤더) ===== */
+.scope-tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.scope-tag.scope-all {
+  background: linear-gradient(135deg, #FFCC00, #FFB84A);
+  color: #2a1900;
+}
+
+.scope-tag.scope-family {
+  background: rgba(88, 166, 255, 0.18);
+  color: #6fb5ff;
+  border: 1px solid rgba(88, 166, 255, 0.35);
+}
+
+#guildFilter {
+  font-size: 12.5px;
+  padding: 6px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* ===== 계정 관리 ===== */
+.account-add {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 720px) {
+  .account-add { grid-template-columns: 1fr 1fr; }
+  .account-add button { grid-column: 1 / -1; }
+}
+
+.account-add input,
+.account-add select {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 9px 10px;
+  font-size: 13.5px;
+  outline: none;
+}
+
+.account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.acct-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.acct-user { font-weight: 700; }
+.acct-scope {
+  background: rgba(88, 166, 255, 0.15);
+  color: #6fb5ff;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.acct-scope.super {
+  background: linear-gradient(135deg, #FFCC00, #FFB84A);
+  color: #2a1900;
+}
+
+/* ===== KPI 애니메이션 ===== */
+.kpi {
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 184, 74, 0.06) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: shimmer 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmer {
+  to { transform: translateX(100%); }
+}
+
+.kpi-num { animation: pop 0.4s ease; }
+
+@keyframes pop {
+  0%   { transform: scale(0.8); opacity: 0; }
+  60%  { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); }
+}

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#003399" />
   <title>주스터콜 · 관리자 대시보드</title>
-  <link rel="stylesheet" href="styles.css?v=12" />
-  <link rel="stylesheet" href="admin.css?v=12" />
+  <link rel="stylesheet" href="styles.css?v=14" />
+  <link rel="stylesheet" href="admin.css?v=14" />
 </head>
 <body class="admin-body">
   <header class="site-header admin-header">
@@ -36,6 +36,10 @@
     </div>
     <div class="admin-top-actions" id="topActions" hidden>
       <a href="index.html" class="ghost small-btn">← 사용자 페이지</a>
+      <span class="scope-tag" id="scopeTag"></span>
+      <select id="guildFilter" class="ghost" aria-label="문파 필터" hidden>
+        <option value="all">전체 문파</option>
+      </select>
       <button type="button" class="ghost small-btn" id="logoutBtn">로그아웃</button>
     </div>
   </header>
@@ -43,9 +47,10 @@
   <dialog id="loginDialog" class="dialog">
     <form method="dialog" id="loginForm">
       <h3>🔐 관리자 로그인</h3>
-      <p class="hint">관리자 비밀번호를 입력해 주세요. (초기 비밀번호: <code>1234</code>)</p>
+      <p class="hint">초기 계정: <code>admin</code> / <code>1234</code> (전체 관리자)</p>
+      <input type="text" id="userInput" placeholder="아이디 (예: admin / 주스터콜)" autocomplete="username" required style="margin-bottom:8px;" />
       <input type="password" id="pwInput" placeholder="비밀번호" required autocomplete="current-password" />
-      <p class="hint error" id="loginError" hidden>비밀번호가 틀렸습니다</p>
+      <p class="hint error" id="loginError" hidden>로그인 실패</p>
       <menu>
         <a href="index.html" class="ghost" style="text-decoration:none; display:inline-flex; align-items:center;">취소</a>
         <button value="login" class="primary" id="loginBtn">로그인</button>
@@ -177,37 +182,50 @@
       </div>
     </section>
 
-    <!-- 성주 현황 관리 -->
-    <section class="card">
+    <!-- 성주 현황 관리 (전체 관리자 전용) -->
+    <section class="card scope-all-only" id="castleSection">
       <h2>👑 성주 현황 관리</h2>
-      <p class="hint">현재 4개 성의 성주를 지정합니다. 닉네임을 비우고 저장하면 미점령 상태로 변경됩니다.</p>
+      <p class="hint">현재 4성을 점령한 문파를 지정합니다. 비우고 저장 = 미점령.</p>
       <div class="castle-lord-form" id="castleLordForm">
         <div class="cl-row" data-castle="주작성">
           <div class="cl-label">🔴 주작성</div>
-          <input type="text" data-field="nickname" placeholder="성주 닉네임" maxlength="20" />
-          <input type="text" data-field="guild" placeholder="문파" maxlength="20" list="guildOptions" />
+          <input type="text" data-field="guild" placeholder="성주 문파 (예: 연가, 매화…)" maxlength="20" list="guildOptions" />
           <button type="button" class="primary small-btn" data-action="save">저장</button>
         </div>
         <div class="cl-row" data-castle="현무성">
           <div class="cl-label">🔵 현무성</div>
-          <input type="text" data-field="nickname" placeholder="성주 닉네임" maxlength="20" />
-          <input type="text" data-field="guild" placeholder="문파" maxlength="20" list="guildOptions" />
+          <input type="text" data-field="guild" placeholder="성주 문파" maxlength="20" list="guildOptions" />
           <button type="button" class="primary small-btn" data-action="save">저장</button>
         </div>
         <div class="cl-row" data-castle="청룡성">
           <div class="cl-label">🟢 청룡성</div>
-          <input type="text" data-field="nickname" placeholder="성주 닉네임" maxlength="20" />
-          <input type="text" data-field="guild" placeholder="문파" maxlength="20" list="guildOptions" />
+          <input type="text" data-field="guild" placeholder="성주 문파" maxlength="20" list="guildOptions" />
           <button type="button" class="primary small-btn" data-action="save">저장</button>
         </div>
         <div class="cl-row" data-castle="백호성">
           <div class="cl-label">⚪ 백호성</div>
-          <input type="text" data-field="nickname" placeholder="성주 닉네임" maxlength="20" />
-          <input type="text" data-field="guild" placeholder="문파" maxlength="20" list="guildOptions" />
+          <input type="text" data-field="guild" placeholder="성주 문파" maxlength="20" list="guildOptions" />
           <button type="button" class="primary small-btn" data-action="save">저장</button>
         </div>
       </div>
       <datalist id="guildOptions"></datalist>
+    </section>
+
+    <!-- 관리자 계정 관리 (전체 관리자 전용) -->
+    <section class="card scope-all-only" id="accountsSection">
+      <h2>🗝️ 관리자 계정 관리</h2>
+      <p class="hint">문파별 관리자에게 발급할 계정. ID 는 문파명 추천 (예: 주스터콜).</p>
+      <div class="account-add">
+        <input type="text" id="acctUser" placeholder="아이디 (예: 주스터콜)" maxlength="32" />
+        <input type="password" id="acctPw" placeholder="비밀번호" maxlength="64" />
+        <select id="acctScope">
+          <option value="">문파 선택…</option>
+          <option value="all">전체 (총관리자)</option>
+        </select>
+        <button type="button" class="primary small-btn" id="acctSaveBtn">저장/수정</button>
+      </div>
+      <p class="hint" id="acctMsg"></p>
+      <div class="account-list" id="accountList"></div>
     </section>
 
     <!-- 연합 지침 편집 -->

@@ -273,13 +273,25 @@ function renderGrid(members, entries, lords) {
       const isLeader = g === ALLIANCE.leader.guild;
       const myCastles = castleMap.get(g) || [];
       const url = `siege.html?guild=${encodeURIComponent(g)}`;
-      const submittedClass = s.submitted > 0 ? "submitted-on" : "";
-      const meta = `<span class="guild-meta ${submittedClass}">총원 ${s.total} · 신청률 ${s.pct}%</span>`;
       const castleBadges = myCastles.map((c) => `<span class="castle-lord-badge">🏰 ${escapeHtml(c)}주</span>`).join("");
+      // 원형 progress (SVG) - 둘레 100, dashoffset 으로 % 표현
+      const circ = 2 * Math.PI * 16; // radius 16
+      const offset = circ * (1 - s.pct / 100);
+      const pctColor = s.pct >= 80 ? "#69d586" : s.pct >= 40 ? "#FFCC00" : s.pct > 0 ? "#ff8a82" : "#3a424e";
       return `<a href="${url}" class="guild-card ${isLeader ? "is-leader" : ""} ${myCastles.length ? "is-castle-lord" : ""}">
-        <span class="guild-name">${escapeHtml(g)}</span>
+        <div class="guild-card-top">
+          <svg class="guild-ring" viewBox="0 0 40 40" aria-hidden="true">
+            <circle class="ring-bg" cx="20" cy="20" r="16" />
+            <circle class="ring-fg" cx="20" cy="20" r="16"
+              style="stroke: ${pctColor}; stroke-dasharray: ${circ}; stroke-dashoffset: ${offset};" />
+            <text class="ring-text" x="20" y="22" text-anchor="middle">${s.pct}%</text>
+          </svg>
+          <div class="guild-card-info">
+            <span class="guild-name">${escapeHtml(g)}</span>
+            <span class="guild-meta">총원 ${s.total}</span>
+          </div>
+        </div>
         ${castleBadges}
-        ${meta}
       </a>`;
     }).join("");
 

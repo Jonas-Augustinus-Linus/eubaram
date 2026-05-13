@@ -2,7 +2,9 @@
 // 주스터콜/EU연합 - 관리자 대시보드
 // =================================================
 
+const ADMIN_USER_KEY = "juseter_admin_user";
 const ADMIN_PW_KEY = "juseter_admin_pw";
+const ADMIN_SCOPE_KEY = "juseter_admin_scope";
 const DEFAULT_ENDPOINT = "https://script.google.com/macros/s/AKfycbwuCTkMYPDZoQIXe63N5aFf0W-ViJeo8LX4kfspdmt9qporNmgJPWdFAH6GUy2JyN2x5A/exec";
 
 // EU 연합 구조 (수동 관리)
@@ -52,20 +54,25 @@ function getEndpoint() {
   return localStorage.getItem("juseter_endpoint") || DEFAULT_ENDPOINT;
 }
 
-function getPassword() {
-  return sessionStorage.getItem(ADMIN_PW_KEY) || "";
-}
-function setPassword(pw) {
-  if (pw) sessionStorage.setItem(ADMIN_PW_KEY, pw);
-  else sessionStorage.removeItem(ADMIN_PW_KEY);
-}
+function getUsername() { return sessionStorage.getItem(ADMIN_USER_KEY) || ""; }
+function setUsername(u) { if (u) sessionStorage.setItem(ADMIN_USER_KEY, u); else sessionStorage.removeItem(ADMIN_USER_KEY); }
+function getPassword() { return sessionStorage.getItem(ADMIN_PW_KEY) || ""; }
+function setPassword(pw) { if (pw) sessionStorage.setItem(ADMIN_PW_KEY, pw); else sessionStorage.removeItem(ADMIN_PW_KEY); }
+function getScope() { return sessionStorage.getItem(ADMIN_SCOPE_KEY) || ""; }
+function setScope(s) { if (s) sessionStorage.setItem(ADMIN_SCOPE_KEY, s); else sessionStorage.removeItem(ADMIN_SCOPE_KEY); }
 
 async function api(payload) {
   const ep = getEndpoint();
+  const guildFilter = currentGuildFilter !== "all" ? currentGuildFilter : "";
   const res = await fetch(ep, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ ...payload, password: getPassword() }),
+    body: JSON.stringify({
+      ...payload,
+      username: getUsername(),
+      password: getPassword(),
+      ...(guildFilter ? { guildFilter } : {}),
+    }),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
@@ -81,14 +88,20 @@ async function apiGet(action) {
 
 // ---- Login ----
 
-async function tryLogin(pw) {
+async function tryLogin(user, pw) {
+  setUsername(user);
   setPassword(pw);
   try {
-    const r = await api({ action: "admin:checkPw" });
-    if (r && r.ok) return true;
+    const r = await api({ action: "admin:login" });
+    if (r && r.ok) {
+      setScope(r.scope || "");
+      return r.scope || "";
+    }
   } catch (_) {}
+  setUsername("");
   setPassword("");
-  return false;
+  setScope("");
+  return null;
 }
 
 function showLogin() {
@@ -107,28 +120,84 @@ function hideLogin() {
 
 async function attemptLogin(e) {
   if (e) e.preventDefault();
+  const user = $("#userInput").value.trim();
   const pw = $("#pwInput").value.trim();
   const errEl = $("#loginError");
   errEl.hidden = true;
-  if (!pw) { errEl.textContent = "비밀번호 입력"; errEl.hidden = false; return; }
+  if (!user || !pw) { errEl.textContent = "아이디/비밀번호 입력"; errEl.hidden = false; return; }
   $("#loginBtn").disabled = true;
   $("#loginBtn").textContent = "확인 중…";
-  const ok = await tryLogin(pw);
+  const scope = await tryLogin(user, pw);
   $("#loginBtn").disabled = false;
   $("#loginBtn").textContent = "로그인";
-  if (ok) {
+  if (scope !== null) {
+    applyScope(scope);
     hideLogin();
     loadAll();
   } else {
-    errEl.textContent = "비밀번호가 틀렸습니다";
+    errEl.textContent = "아이디 또는 비밀번호가 틀렸습니다";
     errEl.hidden = false;
   }
 }
 
 function logout() {
+  setUsername("");
   setPassword("");
+  setScope("");
   $("#pwInput").value = "";
+  $("#userInput").value = "";
   showLogin();
+}
+
+function guildsInScope(scope) {
+  if (!scope || scope === "all") {
+    const out = [];
+    ALLIANCE.families.forEach((f) => f.guilds.forEach((g) => out.push(g)));
+    return out;
+  }
+  const fam = ALLIANCE.families.find((f) => f.name === scope);
+  if (fam) return fam.guilds.slice();
+  return [scope];
+}
+
+function applyScope(scope) {
+  const tag = $("#scopeTag");
+  if (tag) {
+    if (scope === "all") {
+      tag.textContent = "👑 전체 관리자";
+      tag.className = "scope-tag scope-all";
+    } else if (scope) {
+      tag.textContent = `📌 ${scope} 관리자`;
+      tag.className = "scope-tag scope-family";
+    } else {
+      tag.textContent = "";
+      tag.className = "scope-tag";
+    }
+  }
+  // scope-all-only 섹션은 전체 관리자에게만 보임
+  document.querySelectorAll(".scope-all-only").forEach((el) => {
+    el.hidden = scope !== "all";
+  });
+  // 문파 필터: 스코프 내 문파들로 채움 (스코프=all 이면 전체)
+  populateGuildFilter(scope);
+  currentGuildFilter = "all";
+}
+
+function populateGuildFilter(scope) {
+  const gf = $("#guildFilter");
+  if (!gf) return;
+  const guilds = guildsInScope(scope);
+  // 하나뿐이면 dropdown 숨김
+  if (guilds.length <= 1) {
+    gf.hidden = true;
+    gf.innerHTML = `<option value="all">${guilds[0] || "전체"}</option>`;
+    return;
+  }
+  gf.hidden = false;
+  const label = scope === "all" ? "전체 문파" : `${scope} 전체`;
+  gf.innerHTML = `<option value="all">${label}</option>` +
+    guilds.map((g) => `<option value="${g}">${g}</option>`).join("");
+  gf.value = "all";
 }
 
 // ---- Stats rendering ----
@@ -144,6 +213,7 @@ async function loadAll() {
     loadMembersList(),
     loadCastleLords(),
     loadGuidelines(),
+    loadAccountList(),
   ]);
   populateGuildDatalist();
 }
@@ -154,6 +224,79 @@ function populateGuildDatalist() {
   const all = [];
   ALLIANCE.families.forEach((f) => f.guilds.forEach((g) => all.push(g)));
   dl.innerHTML = all.map((g) => `<option value="${g}">`).join("");
+
+  // 계정 추가 dropdown 도 동시에 채우기 (계 스코프)
+  const acctScope = document.querySelector("#acctScope");
+  if (acctScope && acctScope.options.length <= 2) {
+    const opts = ['<option value="">계 선택…</option>', '<option value="all">전체 (총관리자)</option>'];
+    ALLIANCE.families.forEach((f) => {
+      opts.push(`<option value="${f.name}">${f.name}</option>`);
+    });
+    acctScope.innerHTML = opts.join("");
+  }
+}
+
+async function loadAccountList() {
+  const wrap = document.querySelector("#accountList");
+  if (!wrap) return;
+  try {
+    const r = await api({ action: "admin:accounts:list" });
+    if (!r.ok) {
+      wrap.innerHTML = "";
+      return;
+    }
+    const list = r.accounts || [];
+    if (!list.length) {
+      wrap.innerHTML = `<div class="hint">계정 없음</div>`;
+      return;
+    }
+    wrap.innerHTML = list.map((acc) => `
+      <div class="acct-row">
+        <span class="acct-user">${escapeHtml(acc.username)}</span>
+        <span class="acct-scope ${acc.scope === 'all' ? 'super' : ''}">${escapeHtml(acc.scope || '미지정')}</span>
+        ${acc.username.toLowerCase() === 'admin' ? '' : `<button type="button" class="ghost small-btn" data-remove="${escapeHtml(acc.username)}">삭제</button>`}
+      </div>
+    `).join("");
+    wrap.querySelectorAll('button[data-remove]').forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const u = btn.dataset.remove;
+        if (!confirm(`[${u}] 계정을 정말 삭제할까요?`)) return;
+        try {
+          const r = await api({ action: "admin:accounts:remove", targetUsername: u });
+          if (!r.ok) throw new Error(r.error || "");
+          await loadAccountList();
+        } catch (err) {
+          alert("삭제 실패: " + err.message);
+        }
+      });
+    });
+  } catch (err) {
+    wrap.innerHTML = `<div class="hint error">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function handleSaveAccount() {
+  const user = document.querySelector("#acctUser").value.trim();
+  const pw = document.querySelector("#acctPw").value;
+  const scope = document.querySelector("#acctScope").value;
+  const msg = document.querySelector("#acctMsg");
+  msg.className = "hint";
+  if (!user) { msg.textContent = "아이디 입력"; msg.className = "hint error"; return; }
+  if (!pw || pw.length < 3) { msg.textContent = "비밀번호 3자 이상"; msg.className = "hint error"; return; }
+  if (!scope) { msg.textContent = "권한 범위 선택"; msg.className = "hint error"; return; }
+  try {
+    const r = await api({ action: "admin:accounts:set", targetUsername: user, newPassword: pw, scope });
+    if (!r.ok) throw new Error(r.error || "");
+    msg.textContent = "저장 완료 ✓";
+    msg.className = "hint success";
+    document.querySelector("#acctUser").value = "";
+    document.querySelector("#acctPw").value = "";
+    document.querySelector("#acctScope").value = "";
+    await loadAccountList();
+  } catch (err) {
+    msg.textContent = "실패: " + err.message;
+    msg.className = "hint error";
+  }
 }
 
 async function loadCastleLords() {
@@ -166,9 +309,7 @@ async function loadCastleLords() {
       const row = document.querySelector(`.cl-row[data-castle="${c}"]`);
       if (!row) return;
       const l = lords[c];
-      const nickIn = row.querySelector('[data-field="nickname"]');
       const guildIn = row.querySelector('[data-field="guild"]');
-      if (nickIn) nickIn.value = l && l.nickname ? l.nickname : "";
       if (guildIn) guildIn.value = l && l.guild ? l.guild : "";
     });
   } catch (err) {
@@ -179,14 +320,13 @@ async function loadCastleLords() {
 async function saveCastleLord(castle) {
   const row = document.querySelector(`.cl-row[data-castle="${castle}"]`);
   if (!row) return;
-  const nickname = row.querySelector('[data-field="nickname"]').value.trim();
   const guild = row.querySelector('[data-field="guild"]').value.trim();
   const btn = row.querySelector('button');
   btn.disabled = true;
   const orig = btn.textContent;
   btn.textContent = "…";
   try {
-    const r = await api({ action: "castleLord:set", castle, nickname, guild });
+    const r = await api({ action: "castleLord:set", castle, guild });
     if (!r.ok) throw new Error(r.error || "");
     btn.textContent = "✓";
     setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
@@ -586,10 +726,22 @@ function init() {
   // 비밀번호 변경
   document.querySelector("#changePwBtn")?.addEventListener("click", changeAdminPw);
 
-  // 로그인 상태 확인
-  if (getPassword()) {
-    tryLogin(getPassword()).then((ok) => {
-      if (ok) {
+  // 계정 관리
+  document.querySelector("#acctSaveBtn")?.addEventListener("click", handleSaveAccount);
+
+  // 문파 필터
+  document.querySelector("#guildFilter")?.addEventListener("change", (e) => {
+    currentGuildFilter = e.target.value;
+    loadWeekly();
+    loadComparison();
+    loadMonthly();
+  });
+
+  // 로그인 상태 확인 (세션 유지)
+  if (getUsername() && getPassword()) {
+    tryLogin(getUsername(), getPassword()).then((scope) => {
+      if (scope !== null) {
+        applyScope(scope);
         hideLogin();
         loadAll();
       } else {
