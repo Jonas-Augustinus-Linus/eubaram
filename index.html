@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>주스터콜 공성신청</title>
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=7" />
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
 </head>
 <body>
@@ -74,14 +74,30 @@
         <input type="text" id="score" placeholder="예: 2818.23" inputmode="decimal" enterkeyhint="next" />
       </label>
 
+      <div class="field">
+        <span class="field-label">정예참전 여부</span>
+        <div class="segmented" id="eliteSegmented" role="radiogroup" aria-label="정예참전 여부">
+          <button type="button" class="seg-btn" data-value="O" role="radio" aria-checked="false">⭕ 참전</button>
+          <button type="button" class="seg-btn" data-value="X" role="radio" aria-checked="false">❌ 불참</button>
+          <button type="button" class="seg-btn" data-value="최대한 참여" role="radio" aria-checked="false">⏳ 최대한 참여</button>
+        </div>
+      </div>
+
       <label class="field">
         <span class="field-label">비고 / 메모 (선택)</span>
         <input type="text" id="note" placeholder="예: 4차승급, 매화 등" maxlength="80" enterkeyhint="done" />
       </label>
 
-      <button type="button" class="primary submit-btn" id="submitBtn">
-        <span>신청하기</span>
-      </button>
+      <div class="submit-row">
+        <button type="button" class="primary submit-btn" id="submitBtn">
+          <span>✓ 신청하기</span>
+          <small>첫 인증</small>
+        </button>
+        <button type="button" class="primary submit-btn variant-update" id="updateBtn">
+          <span>⟳ 갱신하기</span>
+          <small>점수 업데이트</small>
+        </button>
+      </div>
 
       <p class="hint" id="formMessage" role="status" aria-live="polite"></p>
     </section>
@@ -110,6 +126,7 @@
             <col class="col-castle" />
             <col class="col-nick" />
             <col class="col-score" />
+            <col class="col-elite" />
             <col class="col-time" />
             <col class="col-note" />
           </colgroup>
@@ -118,12 +135,13 @@
               <th>성</th>
               <th>닉네임</th>
               <th class="num">점수</th>
+              <th>정예</th>
               <th>시간</th>
               <th>비고</th>
             </tr>
           </thead>
           <tbody id="entriesTbody">
-            <tr><td colspan="5" class="empty">불러오는 중…</td></tr>
+            <tr><td colspan="6" class="empty">불러오는 중…</td></tr>
           </tbody>
         </table>
       </div>
@@ -159,6 +177,6 @@
     </small>
   </footer>
 
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>

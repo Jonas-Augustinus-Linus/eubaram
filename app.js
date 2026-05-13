@@ -373,6 +373,14 @@ function formatDisplayTime(raw) {
   return String(raw).slice(0, 16);
 }
 
+function renderElitePill(value) {
+  const v = (value || "").trim();
+  if (v === "O") return `<span class="elite-pill elite-O">⭕ 참전</span>`;
+  if (v === "X") return `<span class="elite-pill elite-X">❌ 불참</span>`;
+  if (v === "최대한 참여" || v === "최대") return `<span class="elite-pill elite-MAX">⏳ 최대한</span>`;
+  return `<span class="elite-NONE">-</span>`;
+}
+
 function renderEntries() {
   const mode = $("#castleFilter").value;
   const filtered = filterEntries(cachedEntries, mode)
@@ -380,19 +388,21 @@ function renderEntries() {
     .sort((a, b) => (b.dateKst || "").localeCompare(a.dateKst || ""));
   const tbody = $("#entriesTbody");
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty">기록이 없습니다</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">기록이 없습니다</td></tr>`;
     return;
   }
   tbody.innerHTML = filtered.map((e) => {
     const castle = escapeHtml(e.castle || "");
     const nick = escapeHtml(e.nickname || "");
     const score = escapeHtml(e.score || "");
+    const elite = renderElitePill(e.elite);
     const dt = escapeHtml(formatDisplayTime(e.dateKst));
     const note = escapeHtml(e.note || "");
     return `<tr>
       <td><span class="castle-pill pill-${castle}">${castle}</span></td>
       <td class="nick-cell">${nick}</td>
       <td class="score-cell num">${score}</td>
+      <td class="elite-cell">${elite}</td>
       <td class="time-cell">${dt}</td>
       <td class="note-cell">${note}</td>
     </tr>`;
@@ -427,86 +437,98 @@ function findDuplicate(nickname, castle, dateKstPrefix) {
   );
 }
 
-// ----- Submit flow -----
+// ----- Submit / Update flow -----
 
-async function handleSubmit() {
-  setMessage("");
-  const ctx = getCastleContext();
+function getSelectedElite() {
+  const sel = document.querySelector("#eliteSegmented .seg-btn.selected");
+  return sel ? sel.dataset.value : "";
+}
+
+function clearEliteSelection() {
+  document.querySelectorAll("#eliteSegmented .seg-btn").forEach((b) => {
+    b.classList.remove("selected");
+    b.setAttribute("aria-checked", "false");
+  });
+}
+
+function validateForm(ctx) {
   if (!ctx.castle) {
     setMessage(ctx.reason, "error");
-    return;
+    return null;
   }
   if (!ctx.isOpen) {
     setMessage(ctx.reason, "error");
-    return;
+    return null;
   }
-
   const nickname = $("#nickname").value.trim();
   const score = $("#score").value.trim();
   const note = $("#note").value.trim();
+  const elite = getSelectedElite();
+  if (!nickname) { setMessage("닉네임을 입력해 주세요", "error"); return null; }
+  if (!score) { setMessage("점수를 입력하거나 스크린샷에서 선택해 주세요", "error"); return null; }
+  if (!elite) { setMessage("정예참전 여부를 선택해 주세요", "error"); return null; }
+  return { nickname, score, note, elite };
+}
 
-  if (!nickname) {
-    setMessage("닉네임을 입력해 주세요", "error");
-    return;
-  }
-  if (!score) {
-    setMessage("점수를 입력하거나 스크린샷에서 선택해 주세요", "error");
-    return;
-  }
+async function doSubmit(asUpdate) {
+  setMessage("");
+  const ctx = getCastleContext();
+  const v = validateForm(ctx);
+  if (!v) return;
 
-  // 중복 체크
+  // 클라이언트측 사전 체크 (서버에서 최종 검증)
   const todayStr = todayKstString();
-  const dup = findDuplicate(nickname, ctx.castle, todayStr);
-  if (dup) {
-    const ok = await askConfirm(
-      `이미 ${ctx.castle}에 [${dup.nickname}] 점수 ${dup.score} 가(이) 등록되어 있습니다. 점수갱신을 하신겁니까?`
-    );
-    if (!ok) {
-      setMessage("취소되었습니다", "");
-      return;
-    }
+  const dup = findDuplicate(v.nickname, ctx.castle, todayStr);
+  if (asUpdate && !dup) {
+    setMessage(`[${v.nickname}] 닉네임으로 ${ctx.castle} 신청 내역이 없습니다. '신청하기' 를 눌러주세요`, "error");
+    return;
+  }
+  if (!asUpdate && dup) {
+    setMessage(`[${dup.nickname}] 이미 ${ctx.castle} 에 ${dup.score} 점이 등록되어 있습니다. 점수가 올랐으면 '⟳ 갱신하기' 를 눌러주세요`, "error");
+    return;
   }
 
-  const btn = $("#submitBtn");
-  btn.disabled = true;
-  setMessage("전송 중…");
+  const submitBtn = $("#submitBtn");
+  const updateBtn = $("#updateBtn");
+  submitBtn.disabled = true;
+  updateBtn.disabled = true;
+  setMessage(asUpdate ? "갱신 중…" : "신청 중…");
   try {
     const payload = {
       action: "submit",
-      nickname,
-      score,
-      note,
+      nickname: v.nickname,
+      score: v.score,
+      note: v.note,
+      elite: v.elite,
       castle: ctx.castle,
       dateKst: formatKstDateTime(),
-      update: !!dup,
+      update: !!asUpdate,
     };
     const res = await apiSubmit(payload);
-    setMessage(res.updated ? "점수가 갱신되었습니다 ✅" : "신청 완료 ✅", "success");
+    setMessage(res.updated ? `갱신 완료 ✅ (${v.nickname} → ${v.score})` : `신청 완료 ✅ (${v.nickname} · ${v.score})`, "success");
+    // 폼 초기화 (닉네임은 유지)
     $("#score").value = "";
     $("#note").value = "";
-    $("#preview").hidden = true;
+    clearEliteSelection();
     $("#preview").src = "";
+    $("#previewWrap").hidden = true;
+    $("#previewActions").hidden = true;
     $("#candidatesField").hidden = true;
+    $("#ocrStatus").hidden = true;
+    $("#rawOcrSection").hidden = true;
+    $("#fileInput").value = "";
+    lastUploadedFile = null;
     await refreshEntries();
   } catch (err) {
-    setMessage(`전송 실패: ${err.message}`, "error");
+    setMessage(`${asUpdate ? "갱신" : "신청"} 실패: ${err.message}`, "error");
   } finally {
-    btn.disabled = false;
+    submitBtn.disabled = false;
+    updateBtn.disabled = false;
   }
 }
 
-function askConfirm(detail) {
-  return new Promise((resolve) => {
-    const dlg = $("#confirmDialog");
-    $("#confirmDetail").textContent = detail;
-    const onClose = () => {
-      dlg.removeEventListener("close", onClose);
-      resolve(dlg.returnValue === "confirm");
-    };
-    dlg.addEventListener("close", onClose);
-    dlg.showModal();
-  });
-}
+function handleSubmit() { return doSubmit(false); }
+function handleUpdate() { return doSubmit(true); }
 
 // ----- File / OCR handling -----
 
@@ -798,8 +820,21 @@ function init() {
   });
 
   $("#submitBtn").addEventListener("click", handleSubmit);
+  $("#updateBtn").addEventListener("click", handleUpdate);
   $("#refreshBtn").addEventListener("click", refreshEntries);
   $("#castleFilter").addEventListener("change", renderEntries);
+
+  // 정예참전 segmented control
+  document.querySelectorAll("#eliteSegmented .seg-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#eliteSegmented .seg-btn").forEach((b) => {
+        b.classList.remove("selected");
+        b.setAttribute("aria-checked", "false");
+      });
+      btn.classList.add("selected");
+      btn.setAttribute("aria-checked", "true");
+    });
+  });
 
   // 점수 영역 직접 선택 (크롭) 모드
   $("#cropBtn")?.addEventListener("click", startCropMode);

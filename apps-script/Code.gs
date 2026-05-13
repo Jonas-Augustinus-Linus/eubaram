@@ -19,7 +19,7 @@
 
 const SPREADSHEET_ID = ''; // 바인딩 스크립트는 빈 문자열로 두세요
 const SHEET_NAME = '점수신청';
-const HEADERS = ['성', '닉네임', '점수', '시간(KST)', '비고', '갱신여부'];
+const HEADERS = ['성', '닉네임', '점수', '시간(KST)', '비고', '갱신여부', '정예참전'];
 
 function getSheet_() {
   const ss = SPREADSHEET_ID
@@ -154,6 +154,7 @@ function listEntries_() {
       dateKst: formatDateValue_(r[3]),
       note: String(r[4] || ''),
       updated: String(r[5] || '') === '갱신',
+      elite: String(r[6] || ''),
     }));
 }
 
@@ -163,6 +164,7 @@ function submitEntry_(body) {
   const castle = (body.castle || '').toString().trim();
   const dateKst = (body.dateKst || '').toString().trim();
   const note = (body.note || '').toString().trim();
+  const elite = (body.elite || '').toString().trim();
   const wantUpdate = !!body.update;
 
   if (!nickname) return { ok: false, error: '닉네임 누락' };
@@ -190,16 +192,22 @@ function submitEntry_(body) {
     }
   }
 
-  if (dupRow > 0) {
-    if (!wantUpdate) {
-      return { ok: false, error: 'duplicate', duplicate: true };
+  if (wantUpdate) {
+    // 갱신 의도: 기존 신청이 있어야만 갱신 가능
+    if (dupRow <= 0) {
+      return { ok: false, error: 'not_found', notFound: true };
     }
     sh.getRange(dupRow, 1, 1, HEADERS.length).setValues([[
-      castle, nickname, score, dateKst, note, '갱신',
+      castle, nickname, score, dateKst, note, '갱신', elite,
     ]]);
     return { ok: true, updated: true };
   }
 
-  sh.appendRow([castle, nickname, score, dateKst, note, '']);
+  // 신청 의도: 중복이면 에러
+  if (dupRow > 0) {
+    return { ok: false, error: 'duplicate', duplicate: true };
+  }
+
+  sh.appendRow([castle, nickname, score, dateKst, note, '', elite]);
   return { ok: true, updated: false };
 }
