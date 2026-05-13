@@ -79,13 +79,26 @@ function doPost(e) {
 }
 
 /**
+ * 1회 권한 부여 트리거:
+ *   편집기에서 이 함수 한 번 실행 → Google 이 Drive 권한 다이얼로그 표시 → 승인.
+ *   승인 후엔 ocrImage_ 가 정상 동작합니다.
+ *   (서비스 추가만으로는 OAuth 스코프가 확장 안되므로 이 단계 필요)
+ */
+function setupOcrPermissions() {
+  const blob = Utilities.newBlob('setup', 'text/plain', 'setup.txt');
+  const f = Drive.Files.insert({title: 'setup-' + Date.now(), mimeType: 'text/plain'}, blob, {convert: false});
+  DriveApp.getFileById(f.id).setTrashed(true);
+  return 'OK';
+}
+
+/**
  * Google Drive 의 OCR 기능을 사용해 이미지에서 텍스트 추출.
  * Tesseract.js 보다 게임 UI / 폰 사진 인식률이 훨씬 좋음.
  *
- * 사전 준비 (1회):
- *   Apps Script 편집기 좌측 사이드바 → 「서비스」(Dienste) → + 추가
- *     → "Drive API" v2 선택 → 추가
- *   그 후 「배포 관리」 → ✏️ 편집 → 새 버전 → 배포
+ * 사전 준비:
+ *   1) 좌측 사이드바 「서비스」 → + → "Drive API" v2 추가
+ *   2) 편집기에서 setupOcrPermissions 함수 1회 실행 → Drive 권한 승인
+ *   3) 「배포 관리」 → ✏️ → 새 버전 → 배포
  */
 function ocrImage_(body) {
   try {
