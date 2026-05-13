@@ -486,3 +486,83 @@
   60%  { transform: scale(1.05); opacity: 1; }
   100% { transform: scale(1); }
 }
+
+/* ===== Responsive: tablet (≤900px) ===== */
+@media (max-width: 900px) {
+  .admin-main {
+    padding-left: calc(12px + var(--safe-left));
+    padding-right: calc(12px + var(--safe-right));
+  }
+  .admin-header h1 { font-size: 22px; }
+}
+
+/* ===== Responsive: mobile (≤640px) ===== */
+@media (max-width: 640px) {
+  .admin-header { padding-bottom: 14px; }
+  .admin-header h1 { font-size: 20px; letter-spacing: -0.3px; }
+  .admin-header .brand-icon { font-size: 20px; }
+  .admin-header .brand { gap: 6px; margin: 2px 0 6px; }
+
+  .admin-top-actions { gap: 6px; margin-top: 10px; }
+  .admin-top-actions .small-btn {
+    padding: 5px 10px;
+    min-height: 30px;
+    font-size: 12px;
+  }
+  .admin-top-actions #guildFilter {
+    font-size: 12px;
+    padding: 5px 8px;
+    max-width: 140px;
+  }
+  .scope-tag { font-size: 11px; padding: 3px 9px; }
+
+  .admin-main {
+    padding-left: calc(10px + var(--safe-left));
+    padding-right: calc(10px + var(--safe-right));
+    gap: 12px;
+  }
+
+  .kpi { padding: 12px 10px; }
+  .kpi-num { font-size: 19px; }
+  .kpi-lbl { font-size: 10.5px; letter-spacing: 0.4px; }
+  .kpi-grid { gap: 8px; grid-template-columns: repeat(2, 1fr); }
+
+  .data-table { font-size: 12.5px; }
+  .data-table th { font-size: 10px; padding: 8px 6px; }
+  .data-table td { padding: 8px 6px; }
+
+  .list-header h2 { font-size: 15px; }
+  .card h2 { font-size: 15.5px; }
+
+  .member-add { flex-wrap: wrap; }
+  .member-add input { flex: 1 1 100%; }
+  .member-add button { width: 100%; }
+
+  .member-group { padding: 8px 10px; }
+  .member-group-header strong { font-size: 13px; }
+  .member-group-meta { font-size: 11px; }
+
+  .member-bulk textarea { font-size: 12.5px; }
+  .member-bulk .actions { flex-wrap: wrap; }
+  .member-bulk .actions button { flex: 1 1 0; }
+
+  .cl-row { gap: 8px; }
+  .cl-row input { padding: 9px 10px; font-size: 13.5px; }
+
+  #guidelinesArea { font-size: 13.5px; }
+}
+
+/* ===== Responsive: small mobile (≤380px) ===== */
+@media (max-width: 380px) {
+  .admin-header .eu-flag-bar { font-size: 10.5px; padding: 3px 8px; }
+  .admin-header .eu-flag-svg { width: 18px; height: 12px; }
+  .admin-header h1 { font-size: 18px; }
+  .admin-top-actions .small-btn { font-size: 11.5px; padding: 5px 8px; }
+  .admin-top-actions #guildFilter { max-width: 120px; }
+
+  .kpi-num { font-size: 17px; }
+  .kpi-lbl { font-size: 10px; }
+
+  .data-table { font-size: 12px; }
+  .data-table th { font-size: 9.5px; }
+}
