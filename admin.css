@@ -6,14 +6,44 @@
     radial-gradient(1200px 600px at 50% -20%, #1a2434 0%, #0c1015 60%);
 }
 
-.admin-header h1 { font-size: 19px; }
+.admin-header { padding-bottom: 18px; }
+.admin-header .eu-flag-bar { margin-bottom: 8px; padding: 4px 10px; font-size: 11px; }
+.admin-header .eu-flag-svg { width: 22px; height: 15px; }
+
+.admin-header .brand {
+  margin: 4px 0 8px;
+}
+.admin-header h1 {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  background: linear-gradient(135deg, #FFCC00, var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.admin-header .brand-icon { font-size: 24px; }
 
 .admin-top-actions {
-  margin-top: 10px;
+  margin-top: 12px;
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 8px;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
 }
-.admin-top-actions .small-btn { text-decoration: none; }
+
+.admin-top-actions .small-btn {
+  text-decoration: none;
+  padding: 6px 12px;
+  min-height: 32px;
+  font-size: 13px;
+}
+
+.admin-top-actions #guildFilter {
+  max-width: 180px;
+}
 
 .admin-main {
   max-width: 1200px;

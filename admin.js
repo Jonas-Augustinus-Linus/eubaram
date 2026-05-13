@@ -195,14 +195,16 @@ function populateGuildFilter(scope) {
   // 하나뿐이면 dropdown 숨김
   if (guilds.length <= 1) {
     gf.hidden = true;
-    gf.innerHTML = `<option value="all">${guilds[0] || "전체"}</option>`;
+    gf.innerHTML = `<option value="all" selected>${guilds[0] || "전체"}</option>`;
     return;
   }
   gf.hidden = false;
-  const label = scope === "all" ? "전체 문파" : `${scope} 전체`;
-  gf.innerHTML = `<option value="all">${label}</option>` +
+  const label = scope === "all" ? "🔍 전체 문파" : `🔍 ${scope} 전체`;
+  // selected 속성을 명시적으로 부여
+  gf.innerHTML = `<option value="all" selected>${label}</option>` +
     guilds.map((g) => `<option value="${g}">${g}</option>`).join("");
   gf.value = "all";
+  gf.selectedIndex = 0;
 }
 
 // ---- Stats rendering ----
