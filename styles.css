@@ -193,6 +193,13 @@ main {
   border-color: var(--accent);
 }
 
+.candidate-chip.primary-match {
+  background: rgba(255, 184, 74, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .ocr-status {
   display: flex;
   flex-direction: row;

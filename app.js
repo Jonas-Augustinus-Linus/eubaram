@@ -97,30 +97,50 @@ async function apiSubmit(payload) {
 
 // ----- OCR -----
 
+// 게임 스크린샷에는 "등록한 공성전 참가점수 : 2818.23" 형태로 표기됨.
+// 이 라벨 뒤의 숫자를 1순위 후보로 잡고, 나머지는 보조 후보로 추가.
 function extractScoreCandidates(rawText) {
-  const candidates = new Set();
-  // XXXX.XX 형태 (소수점 포함)
-  const decRe = /\b(\d{3,5}\.\d{1,3})\b/g;
-  let m;
-  while ((m = decRe.exec(rawText)) !== null) {
-    candidates.add(m[1]);
+  // 1) 라벨 매칭 — OCR 오인식을 감안해 공백/구두점 유연하게
+  const labelPatterns = [
+    /등록한?\s*공\s*성\s*전?\s*참\s*가\s*점\s*수\s*[:：·.,]?\s*([0-9][0-9.,\s]{1,15})/,
+    /공\s*성\s*전?\s*참\s*가\s*점\s*수\s*[:：·.,]?\s*([0-9][0-9.,\s]{1,15})/,
+    /참\s*가\s*점\s*수\s*[:：·.,]?\s*([0-9][0-9.,\s]{1,15})/,
+  ];
+  let primary = null;
+  for (const pat of labelPatterns) {
+    const m = rawText.match(pat);
+    if (!m) continue;
+    const cleaned = m[1].replace(/\s/g, "").replace(/,/g, "");
+    if (/^\d{1,5}(\.\d{1,3})?$/.test(cleaned)) {
+      primary = cleaned;
+      break;
+    }
   }
-  // 1000~99999 정수
-  const intRe = /\b(\d{3,5})\b/g;
+
+  // 2) 보조 후보 수집
+  const others = new Set();
+  const decRe = /(\d{3,5}\.\d{1,3})/g;
+  let m;
+  while ((m = decRe.exec(rawText)) !== null) others.add(m[1]);
+  const intRe = /(?<!\d)(\d{3,5})(?!\d)/g;
   while ((m = intRe.exec(rawText)) !== null) {
     const n = parseInt(m[1], 10);
-    if (n >= 500 && n <= 99999) candidates.add(m[1]);
+    if (n >= 500 && n <= 99999) others.add(m[1]);
   }
-  // 정수+점 (예: 3312점)
   const ptRe = /(\d{3,5})\s*점/g;
-  while ((m = ptRe.exec(rawText)) !== null) {
-    candidates.add(m[1]);
-  }
-  // 정렬: 길이 긴 것 우선, 그다음 큰 값 우선
-  return Array.from(candidates)
+  while ((m = ptRe.exec(rawText)) !== null) others.add(m[1]);
+
+  if (primary) others.delete(primary);
+
+  const sorted = Array.from(others)
     .map((s) => ({ s, n: parseFloat(s) }))
     .sort((a, b) => b.n - a.n)
     .map((x) => x.s);
+
+  return {
+    primary,
+    list: primary ? [primary, ...sorted] : sorted,
+  };
 }
 
 async function runOcr(file) {
@@ -167,7 +187,7 @@ function renderTodayBanner() {
 
 // ----- UI: candidates -----
 
-function renderCandidates(cands) {
+function renderCandidates(cands, primary) {
   const wrap = $("#candidates");
   wrap.innerHTML = "";
   if (!cands.length) {
@@ -178,7 +198,9 @@ function renderCandidates(cands) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "candidate-chip";
-    btn.textContent = c;
+    if (c === primary) btn.classList.add("primary-match");
+    btn.textContent = c === primary ? `★ ${c}` : c;
+    btn.title = c === primary ? "「참가점수」 라벨 매칭" : "보조 후보";
     btn.addEventListener("click", () => {
       $("#score").value = c;
     });
@@ -366,11 +388,14 @@ async function handleFile(file) {
   $("#ocrStatusText").textContent = "이미지에서 점수를 읽고 있어요…";
   try {
     const text = await runOcr(file);
-    const cands = extractScoreCandidates(text);
-    renderCandidates(cands);
-    if (cands.length) {
-      $("#score").value = cands[0];
-      $("#ocrStatusText").textContent = `${cands.length}개 후보 인식됨 (가장 큰 값 자동 입력)`;
+    const { primary, list } = extractScoreCandidates(text);
+    renderCandidates(list, primary);
+    if (primary) {
+      $("#score").value = primary;
+      $("#ocrStatusText").textContent = `「참가점수」 라벨에서 ${primary} 인식 ✓`;
+    } else if (list.length) {
+      $("#score").value = list[0];
+      $("#ocrStatusText").textContent = `라벨을 못 찾아 보조 후보 ${list.length}개 (가장 큰 값 자동 입력) — 확인 필요`;
     } else {
       $("#ocrStatusText").textContent = "점수를 인식하지 못했어요. 직접 입력해 주세요.";
     }
