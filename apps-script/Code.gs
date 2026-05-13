@@ -1,24 +1,31 @@
 /**
  * 주스터콜 공성신청 - Google Apps Script Backend
  *
- * 배포 방법:
- *  1. https://script.google.com 접속 → 새 프로젝트
- *  2. 이 파일 내용 전체를 Code.gs 에 붙여넣기
- *  3. 상단의 SPREADSHEET_ID 를 본인 구글 시트 ID 로 교체
- *     (시트 URL 의 /d/{여기}/edit 부분)
- *  4. 메뉴 → 배포 → 새 배포 → 유형: 웹 앱
+ * 두 가지 방식 모두 지원:
+ *  A) 바인딩 스크립트 (권장):
+ *     - 구글 시트 → 확장 프로그램 → Apps Script 로 열어 사용
+ *     - SPREADSHEET_ID 설정 불필요
+ *  B) 독립 스크립트:
+ *     - script.google.com 에서 새 프로젝트로 시작
+ *     - 아래 SPREADSHEET_ID 를 본인 시트 ID 로 교체
+ *
+ * 공통 배포:
+ *  1. 메뉴 → 배포 → 새 배포 → 유형: 웹 앱
  *     - 다음 사용자로 실행: 나
  *     - 액세스 권한: "모든 사용자"
  *     - 배포 → 권한 승인
- *  5. 발급된 웹앱 URL (...exec) 을 웹페이지 "엔드포인트 설정" 에 붙여넣기
+ *  2. 발급된 웹앱 URL (...exec) 을 웹페이지 "엔드포인트 설정" 에 붙여넣기
  */
 
-const SPREADSHEET_ID = 'PUT_YOUR_SHEET_ID_HERE';
+const SPREADSHEET_ID = ''; // 바인딩 스크립트는 빈 문자열로 두세요
 const SHEET_NAME = '점수신청';
 const HEADERS = ['성', '닉네임', '점수', '시간(KST)', '비고', '갱신여부'];
 
 function getSheet_() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = SPREADSHEET_ID
+    ? SpreadsheetApp.openById(SPREADSHEET_ID)
+    : SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) throw new Error('스프레드시트 연결 실패: 바인딩 스크립트로 열거나 SPREADSHEET_ID 설정 필요');
   let sh = ss.getSheetByName(SHEET_NAME);
   if (!sh) {
     sh = ss.insertSheet(SHEET_NAME);
