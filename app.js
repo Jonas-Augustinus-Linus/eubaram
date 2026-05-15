@@ -711,23 +711,38 @@ function addMultiAccRow() {
   row.className = "multi-acc-row";
   row.dataset.id = String(id);
   row.innerHTML = `
-    <span class="multi-acc-num"></span>
-    <input type="text" class="multi-nick" placeholder="닉네임" maxlength="6" autocomplete="off" spellcheck="false" enterkeyhint="next">
-    <input type="text" class="multi-score" placeholder="점수" inputmode="decimal" enterkeyhint="next">
-    <label class="multi-ocr-btn" title="사진에서 점수 인식">
-      <span class="ocr-emoji">📸</span>
-      <input type="file" accept="image/*">
-    </label>
-    <div class="multi-elite-mini" role="radiogroup" aria-label="정예참전 여부">
-      <button type="button" data-v="O" title="⭕ 참전" aria-label="참전">⭕</button>
-      <button type="button" data-v="X" title="❌ 불참" aria-label="불참">❌</button>
-      <button type="button" data-v="최대한 참여" title="⏳ 최대한 참여" aria-label="최대한 참여">⏳</button>
+    <div class="multi-acc-row-head">
+      <span class="multi-acc-num"></span>
+      <input type="text" class="multi-nick" placeholder="닉네임 (예: 힐킵2)" maxlength="6" autocomplete="off" spellcheck="false" enterkeyhint="next">
+      <button type="button" class="multi-rm" title="이 계정 제거" aria-label="제거">✕</button>
     </div>
-    <button type="button" class="multi-rm" title="이 계정 제거" aria-label="제거">✕</button>
+    <label class="multi-drop-zone">
+      <input type="file" accept="image/*">
+      <button type="button" class="multi-drop-clear" title="사진 제거" aria-label="사진 제거">✕</button>
+      <div class="multi-drop-default">
+        <span class="multi-drop-icon" aria-hidden="true">📸</span>
+        <div>
+          <div class="multi-drop-text">사진을 끌어다 놓거나 탭하세요</div>
+          <div class="multi-drop-sub">OCR 로 점수 자동 추출</div>
+        </div>
+      </div>
+      <div class="multi-drop-preview" hidden>
+        <img class="multi-drop-img" alt="">
+        <span class="multi-drop-status">대기 중…</span>
+      </div>
+    </label>
+    <div class="multi-acc-row-bottom">
+      <input type="text" class="multi-score" placeholder="점수 (직접 입력 가능)" inputmode="decimal" enterkeyhint="next">
+      <div class="multi-elite-mini" role="radiogroup" aria-label="정예참전 여부">
+        <button type="button" data-v="O" title="⭕ 참전" aria-label="참전">⭕</button>
+        <button type="button" data-v="X" title="❌ 불참" aria-label="불참">❌</button>
+        <button type="button" data-v="최대한 참여" title="⏳ 최대한 참여" aria-label="최대한 참여">⏳</button>
+      </div>
+    </div>
   `;
   list.appendChild(row);
 
-  // remove
+  // remove row
   row.querySelector(".multi-rm").addEventListener("click", () => {
     row.remove();
     renumberMultiAcc();
@@ -742,17 +757,85 @@ function addMultiAccRow() {
     });
   });
 
-  // OCR
-  const fileInput = row.querySelector(".multi-ocr-btn input[type='file']");
+  // drop-zone wiring
+  const dropZone = row.querySelector(".multi-drop-zone");
+  const fileInput = dropZone.querySelector("input[type='file']");
+  const clearBtn = dropZone.querySelector(".multi-drop-clear");
+
   fileInput.addEventListener("change", (e) => {
     const f = e.target.files && e.target.files[0];
-    if (f) runRowOcr(row, f);
+    if (f) handleRowFile(row, f);
+  });
+
+  // 드래그&드롭
+  ["dragenter", "dragover"].forEach((ev) =>
+    dropZone.addEventListener(ev, (e) => {
+      e.preventDefault();
+      dropZone.classList.add("dragover");
+    })
+  );
+  ["dragleave", "drop"].forEach((ev) =>
+    dropZone.addEventListener(ev, (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("dragover");
+    })
+  );
+  dropZone.addEventListener("drop", (e) => {
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) handleRowFile(row, f);
+  });
+
+  // X 버튼 (사진 제거): label 클릭이 새 파일 다이얼로그를 열지 않게 stopPropagation
+  clearBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    clearRowFile(row);
   });
 
   renumberMultiAcc();
   updateMultiAccCount();
   // focus 첫 input
   row.querySelector(".multi-nick").focus();
+}
+
+function handleRowFile(row, file) {
+  if (!file || !file.type.startsWith("image/")) {
+    setMessage("이미지 파일만 가능합니다", "error");
+    return;
+  }
+  const dz = row.querySelector(".multi-drop-zone");
+  const def = row.querySelector(".multi-drop-default");
+  const prev = row.querySelector(".multi-drop-preview");
+  const img = row.querySelector(".multi-drop-img");
+  const status = row.querySelector(".multi-drop-status");
+
+  // 미리보기로 전환
+  const fr = new FileReader();
+  fr.onload = (e) => { img.src = e.target.result; };
+  fr.readAsDataURL(file);
+
+  def.hidden = true;
+  prev.hidden = false;
+  dz.classList.add("has-file");
+  dz.classList.remove("done", "error-state");
+  dz.classList.add("processing");
+  status.className = "multi-drop-status";
+  status.innerHTML = `<span class="multi-drop-spinner" aria-hidden="true"></span><span>OCR 실행 중…</span>`;
+
+  runRowOcr(row, file);
+}
+
+function clearRowFile(row) {
+  const dz = row.querySelector(".multi-drop-zone");
+  const def = row.querySelector(".multi-drop-default");
+  const prev = row.querySelector(".multi-drop-preview");
+  const img = row.querySelector(".multi-drop-img");
+  const fi = row.querySelector(".multi-drop-zone input[type='file']");
+  if (fi) fi.value = "";
+  if (img) img.src = "";
+  def.hidden = false;
+  prev.hidden = true;
+  dz.classList.remove("has-file", "processing", "done", "error-state");
 }
 
 function renumberMultiAcc() {
@@ -801,27 +884,31 @@ function collectMultiAccData() {
 }
 
 async function runRowOcr(row, file) {
-  const btn = row.querySelector(".multi-ocr-btn");
-  btn.classList.remove("done");
-  btn.classList.add("processing");
+  const dz = row.querySelector(".multi-drop-zone");
+  const status = row.querySelector(".multi-drop-status");
+  const rowIdx = Array.from(row.parentElement.children).indexOf(row) + 2;
   try {
     const { text } = await runOcr(file);
     const { primary, list } = extractScoreCandidates(text);
     const pick = primary || list[0];
-    btn.classList.remove("processing");
+    dz.classList.remove("processing");
     if (pick) {
       row.querySelector(".multi-score").value = pick;
-      btn.classList.add("done");
+      dz.classList.add("done");
+      status.className = "multi-drop-status success";
+      status.innerHTML = `<span>✓ 점수 ${pick} 인식됨</span>`;
     } else {
-      setMessage(`#${Array.from(row.parentElement.children).indexOf(row) + 2} 사진에서 점수를 찾지 못함. 직접 입력해 주세요.`, "error");
+      dz.classList.add("error-state");
+      status.className = "multi-drop-status error";
+      status.innerHTML = `<span>점수를 못 찾았어요. 직접 입력해 주세요</span>`;
+      setMessage(`#${rowIdx} 사진에서 점수를 찾지 못했습니다. 직접 입력해 주세요.`, "error");
     }
   } catch (err) {
-    btn.classList.remove("processing");
-    setMessage(`사진 인식 실패: ${err.message}`, "error");
-  } finally {
-    // 파일 input 초기화 (같은 파일 재선택 가능하도록)
-    const fi = btn.querySelector("input[type='file']");
-    if (fi) fi.value = "";
+    dz.classList.remove("processing");
+    dz.classList.add("error-state");
+    status.className = "multi-drop-status error";
+    status.innerHTML = `<span>인식 실패: ${escapeHtml(err.message)}</span>`;
+    setMessage(`#${rowIdx} 사진 인식 실패: ${err.message}`, "error");
   }
 }
 
