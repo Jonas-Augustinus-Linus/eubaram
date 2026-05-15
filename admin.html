@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#003399" />
   <title>주스터콜 · 관리자 대시보드</title>
-  <link rel="stylesheet" href="styles.css?v=19" />
-  <link rel="stylesheet" href="admin.css?v=19" />
+  <link rel="stylesheet" href="styles.css?v=20" />
+  <link rel="stylesheet" href="admin.css?v=20" />
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
 </head>
 <body class="admin-body">
   <header class="site-header admin-header">
@@ -165,8 +166,33 @@
       <div class="member-mgmt">
         <details class="member-bulk">
           <summary>📋 일괄 등록 / 교체 (펼치기)</summary>
-          <p class="hint">한 줄에 한 명씩 닉네임을 입력하세요. 저장 시 기존 명단이 새 명단으로 <strong>완전 교체</strong> 됩니다.</p>
-          <textarea id="bulkArea" rows="8" placeholder="힐킵&#10;현토성&#10;안다웅&#10;..."></textarea>
+          <p class="hint">한 줄에 한 명씩 입력. 형식: <code>닉네임, 문파, 비고/직책</code>. 저장 시 기존 명단이 <strong>완전 교체</strong> 됩니다.</p>
+
+          <div class="ocr-section">
+            <div class="ocr-header">
+              <span class="ocr-title">📸 스크린샷에서 OCR 추출 (최대 15장)</span>
+              <span class="ocr-hint">바람의나라 클래식 문파원 화면을 캡쳐하면 자동으로 추출합니다. <code>&lt;&lt;문주&gt;&gt;</code>, <code>&lt;&lt;부문주&gt;&gt;</code> 자동 분류.</span>
+            </div>
+            <div class="ocr-controls">
+              <label class="ghost small-btn ocr-pick-label" for="memberOcrFiles">
+                📷 사진 선택 / 추가
+              </label>
+              <input type="file" id="memberOcrFiles" accept="image/*" multiple hidden />
+              <select id="ocrGuildPick" class="ghost" aria-label="OCR 결과에 적용할 문파">
+                <option value="">문파 선택 (선택)</option>
+              </select>
+              <button type="button" class="primary small-btn" id="runOcrBtn" disabled>🔍 OCR 실행</button>
+              <button type="button" class="ghost small-btn" id="clearOcrBtn" disabled>✕ 사진 비우기</button>
+            </div>
+            <div class="ocr-previews" id="ocrPreviews"></div>
+            <div class="ocr-progress" id="ocrProgress" hidden>
+              <div class="ocr-progress-bar"><div class="ocr-progress-fill" id="ocrProgressFill"></div></div>
+              <div class="ocr-progress-text" id="ocrProgressText">준비 중…</div>
+            </div>
+            <p class="hint" id="ocrResultMsg"></p>
+          </div>
+
+          <textarea id="bulkArea" rows="10" placeholder="힐킵, 주스터콜, 문주&#10;현토성, 주스터콜, 부문주&#10;안다웅, 주스터콜&#10;..."></textarea>
           <div class="actions">
             <button type="button" class="ghost" id="loadCurrentBtn">현재 명단 불러오기</button>
             <button type="button" class="primary" id="saveBulkBtn">저장 (전체 교체)</button>
@@ -261,6 +287,6 @@
     </div>
   </footer>
 
-  <script src="admin.js?v=19"></script>
+  <script src="admin.js?v=20"></script>
 </body>
 </html>

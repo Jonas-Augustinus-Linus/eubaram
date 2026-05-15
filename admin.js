@@ -678,6 +678,260 @@ function handleLoadCurrent() {
   $("#bulkArea").value = lines;
 }
 
+// ---- 문원 OCR 일괄 추출 ----
+
+let memberOcrFiles = [];
+const MEMBER_OCR_MAX = 15;
+
+function setupMemberOcr() {
+  const fileInput = $("#memberOcrFiles");
+  const runBtn = $("#runOcrBtn");
+  const clearBtn = $("#clearOcrBtn");
+  const guildSel = $("#ocrGuildPick");
+  if (!fileInput || !runBtn || !clearBtn || !guildSel) return;
+
+  // 문파 dropdown 채우기 (계 → 문파 그룹)
+  const opts = ['<option value="">문파 선택 (선택)</option>'];
+  ALLIANCE.families.forEach((f) => {
+    opts.push(`<optgroup label="${escapeHtml(f.name)}">`);
+    f.guilds.forEach((g) => opts.push(`<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`));
+    opts.push(`</optgroup>`);
+  });
+  guildSel.innerHTML = opts.join("");
+
+  fileInput.addEventListener("change", () => {
+    const picked = Array.from(fileInput.files || []);
+    const remaining = MEMBER_OCR_MAX - memberOcrFiles.length;
+    const toAdd = picked.slice(0, Math.max(0, remaining));
+    memberOcrFiles.push(...toAdd);
+    if (memberOcrFiles.length > MEMBER_OCR_MAX) memberOcrFiles = memberOcrFiles.slice(0, MEMBER_OCR_MAX);
+    fileInput.value = ""; // allow re-picking same files
+    renderOcrPreviews();
+    if (picked.length > remaining) {
+      $("#ocrResultMsg").textContent = `⚠️ 최대 ${MEMBER_OCR_MAX}장까지만 가능합니다 (${picked.length - remaining}장 무시됨)`;
+      $("#ocrResultMsg").className = "hint error";
+    }
+  });
+
+  runBtn.addEventListener("click", runMemberOcr);
+  clearBtn.addEventListener("click", () => {
+    memberOcrFiles = [];
+    renderOcrPreviews();
+    $("#ocrResultMsg").textContent = "";
+    $("#ocrResultMsg").className = "hint";
+    $("#ocrProgress").hidden = true;
+  });
+}
+
+function renderOcrPreviews() {
+  const wrap = $("#ocrPreviews");
+  const runBtn = $("#runOcrBtn");
+  const clearBtn = $("#clearOcrBtn");
+  if (!wrap || !runBtn || !clearBtn) return;
+
+  if (!memberOcrFiles.length) {
+    wrap.innerHTML = "";
+    runBtn.disabled = true;
+    clearBtn.disabled = true;
+    return;
+  }
+  runBtn.disabled = false;
+  clearBtn.disabled = false;
+
+  // revoke previous URLs to avoid leaks
+  wrap.querySelectorAll("img").forEach((img) => {
+    if (img.src.startsWith("blob:")) URL.revokeObjectURL(img.src);
+  });
+
+  wrap.innerHTML = memberOcrFiles.map((f, i) => {
+    const url = URL.createObjectURL(f);
+    return `<div class="ocr-thumb" data-idx="${i}">
+      <img src="${url}" alt="">
+      <span class="ocr-thumb-idx">${i + 1}</span>
+      <button type="button" class="ocr-thumb-remove" data-rm="${i}" title="제거">✕</button>
+    </div>`;
+  }).join("");
+
+  wrap.querySelectorAll("button[data-rm]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const i = parseInt(btn.dataset.rm, 10);
+      memberOcrFiles.splice(i, 1);
+      renderOcrPreviews();
+    });
+  });
+}
+
+async function runMemberOcr() {
+  if (!memberOcrFiles.length) return;
+  if (typeof Tesseract === "undefined") {
+    $("#ocrResultMsg").textContent = "OCR 엔진 로드 실패. 네트워크를 확인하고 새로고침 해주세요.";
+    $("#ocrResultMsg").className = "hint error";
+    return;
+  }
+
+  const runBtn = $("#runOcrBtn");
+  const clearBtn = $("#clearOcrBtn");
+  const pickLabel = document.querySelector(".ocr-pick-label");
+  const guildSel = $("#ocrGuildPick");
+  const progress = $("#ocrProgress");
+  const fill = $("#ocrProgressFill");
+  const txt = $("#ocrProgressText");
+  const msg = $("#ocrResultMsg");
+
+  const guild = guildSel.value || "";
+
+  runBtn.disabled = true;
+  clearBtn.disabled = true;
+  if (pickLabel) pickLabel.style.pointerEvents = "none";
+  progress.hidden = false;
+  msg.textContent = "";
+  msg.className = "hint";
+
+  txt.textContent = "OCR 엔진 초기화 (최초 1회 ~12MB 다운로드)…";
+  fill.style.width = "2%";
+
+  // 이전 thumb 상태 초기화
+  document.querySelectorAll(".ocr-thumb").forEach((t) => {
+    t.classList.remove("processing", "done");
+  });
+
+  let worker;
+  try {
+    worker = await Tesseract.createWorker("kor", 1);
+  } catch (err) {
+    txt.textContent = "OCR 엔진 초기화 실패";
+    msg.textContent = "에러: " + err.message;
+    msg.className = "hint error";
+    runBtn.disabled = false;
+    clearBtn.disabled = false;
+    if (pickLabel) pickLabel.style.pointerEvents = "";
+    return;
+  }
+
+  const allParsed = [];
+  for (let i = 0; i < memberOcrFiles.length; i++) {
+    const file = memberOcrFiles[i];
+    const thumb = document.querySelector(`.ocr-thumb[data-idx="${i}"]`);
+    if (thumb) thumb.classList.add("processing");
+    txt.textContent = `${i + 1}/${memberOcrFiles.length} 인식 중… (${file.name})`;
+    fill.style.width = `${((i + 0.3) / memberOcrFiles.length) * 100}%`;
+
+    try {
+      const { data: { text } } = await worker.recognize(file);
+      const parsed = parseRosterOcrText(text);
+      allParsed.push(...parsed);
+      if (thumb) {
+        thumb.classList.remove("processing");
+        thumb.classList.add("done");
+      }
+    } catch (err) {
+      console.warn("OCR fail on image", i, err);
+      if (thumb) thumb.classList.remove("processing");
+    }
+    fill.style.width = `${((i + 1) / memberOcrFiles.length) * 100}%`;
+  }
+
+  try { await worker.terminate(); } catch (_) {}
+
+  // dedupe: 문주 > 부문주 > 일반
+  const rolePri = (r) => (r === "문주" ? 2 : r === "부문주" ? 1 : 0);
+  const byNick = new Map();
+  for (const p of allParsed) {
+    const existing = byNick.get(p.nickname);
+    if (!existing || rolePri(p.role) > rolePri(existing.role)) {
+      byNick.set(p.nickname, p);
+    }
+  }
+  const final = Array.from(byNick.values());
+
+  // 검증
+  const leaderCount = final.filter((x) => x.role === "문주").length;
+  const viceCount = final.filter((x) => x.role === "부문주").length;
+
+  // textarea 에 append (또는 비어있으면 그대로 채움)
+  const ta = $("#bulkArea");
+  const existing = (ta.value || "").trim();
+  const newLines = final.map((p) => {
+    return [p.nickname, guild, p.role].filter(Boolean).join(", ");
+  }).join("\n");
+  ta.value = existing ? `${existing}\n${newLines}` : newLines;
+
+  // 결과 메시지
+  const warnings = [];
+  if (leaderCount === 0) warnings.push("문주 0명 (예상 1명)");
+  else if (leaderCount > 1) warnings.push(`문주 ${leaderCount}명 (예상 1명)`);
+  if (viceCount > 2) warnings.push(`부문주 ${viceCount}명 (예상 2명)`);
+  if (viceCount < 2 && viceCount > 0) warnings.push(`부문주 ${viceCount}명 (예상 2명)`);
+
+  txt.textContent = `완료 · ${final.length}명 추출 (문주 ${leaderCount}, 부문주 ${viceCount})`;
+  if (warnings.length) {
+    msg.textContent = "⚠️ " + warnings.join(" · ") + " — 일괄 입력란을 확인 후 수정해 주세요.";
+    msg.className = "hint error";
+  } else {
+    msg.textContent = `✓ ${final.length}명 추출 완료. 일괄 입력란을 검토한 뒤 저장하세요.`;
+    msg.className = "hint success";
+  }
+
+  runBtn.disabled = false;
+  clearBtn.disabled = false;
+  if (pickLabel) pickLabel.style.pointerEvents = "";
+}
+
+function parseRosterOcrText(raw) {
+  const out = [];
+  const seenLocal = new Set();
+  const lines = (raw || "").split(/\r?\n/);
+  for (const ln of lines) {
+    let s = ln.trim();
+    if (!s) continue;
+
+    // 역할 마커 탐지 (공백/오인식 허용)
+    let role = "";
+    if (/<\s*<?\s*부\s*문\s*주\s*>?\s*>/.test(s)) role = "부문주";
+    else if (/<\s*<?\s*문\s*주\s*>?\s*>/.test(s)) role = "문주";
+    // 꺽쇠 없는 변형도 일부 캐치 (오인식 대비)
+    else if (/(^|\s)부문주(\s|$)/.test(s)) role = "부문주";
+    else if (/(^|\s)문주(\s|$)/.test(s)) role = "문주";
+
+    // 마커/장식 제거
+    let cleaned = s
+      .replace(/<<[^>]*>>/g, " ")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/【[^】]*】/g, " ")
+      .replace(/\[[^\]]*\]/g, " ")
+      .replace(/\([^)]*\)/g, " ")
+      .replace(/(^|\s)(부문주|문주)(\s|$)/g, " ");
+
+    cleaned = cleaned.replace(/\s+/g, " ").trim();
+    if (!cleaned) continue;
+
+    // 한글 포함 1~6자 토큰 우선
+    const tokens = cleaned.split(/\s+/);
+    let nickname = "";
+    for (const t of tokens) {
+      const c = t.replace(/[^가-힣ㄱ-ㆎa-zA-Z0-9]/g, "");
+      if (c && c.length <= 6 && /[가-힣]/.test(c)) {
+        nickname = c;
+        break;
+      }
+    }
+    // 폴백: 한글 없는 경우 영숫자 토큰
+    if (!nickname) {
+      for (const t of tokens) {
+        const c = t.replace(/[^가-힣ㄱ-ㆎa-zA-Z0-9]/g, "");
+        if (c && c.length >= 2 && c.length <= 6) { nickname = c; break; }
+      }
+    }
+    if (!nickname) continue;
+    // 헤더성 단어 필터
+    if (/^(문파|문파원|목록|레벨|직업|이름|닉네임|상태|접속|미접속|순위|등급)$/.test(nickname)) continue;
+    if (seenLocal.has(nickname)) continue;
+    seenLocal.add(nickname);
+    out.push({ nickname, role });
+  }
+  return out;
+}
+
 async function handleAddMember() {
   const input = $("#newMemberInput");
   const nickname = input.value.trim();
@@ -717,6 +971,7 @@ function init() {
   $("#newMemberInput").addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); handleAddMember(); }
   });
+  setupMemberOcr();
 
   // 성주 현황
   $$("#castleLordForm [data-action='save']").forEach((btn) => {
