@@ -196,6 +196,7 @@ function setCastleLord_(body) {
       }
     : null;
   PropertiesService.getScriptProperties().setProperty('CASTLE_LORDS', JSON.stringify(lords));
+  invalidateBootstrap_();
   return { ok: true };
 }
 
@@ -215,6 +216,7 @@ function setGuidelines_(body) {
   PropertiesService.getScriptProperties().setProperty('GUIDELINES_UPDATED_AT',
     Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm')
   );
+  invalidateBootstrap_();
   return { ok: true };
 }
 
@@ -254,10 +256,46 @@ function doGet(e) {
     if (action === 'members') return jsonOut_({ ok: true, members: listMembers_() });
     if (action === 'castleLords') return jsonOut_({ ok: true, lords: getCastleLords_() });
     if (action === 'guidelines') return jsonOut_({ ok: true, text: getGuidelines_() });
+    if (action === 'bootstrap') return jsonOut_(getBootstrap_());
     return jsonOut_({ ok: false, error: 'unknown action: ' + action });
   } catch (err) {
     return jsonOut_({ ok: false, error: String(err) });
   }
+}
+
+// ====================================================
+// Bootstrap: 랜딩/siege 가 필요로 하는 4종을 단일 호출로 묶음.
+// CacheService 로 30초 캐시 → cold-start 영향 최소화.
+// 변경 액션 (submit / members:* / castleLord:set / guidelines:set) 에서 invalidate.
+// ====================================================
+
+const BOOTSTRAP_CACHE_KEY = 'bootstrap_v1';
+const BOOTSTRAP_CACHE_SEC = 30;
+
+function getBootstrap_() {
+  try {
+    const cache = CacheService.getScriptCache();
+    const cached = cache.get(BOOTSTRAP_CACHE_KEY);
+    if (cached) {
+      try { return JSON.parse(cached); } catch (_) {}
+    }
+    const out = {
+      ok: true,
+      entries: listEntries_(),
+      members: listMembers_(),
+      lords: getCastleLords_(),
+      guidelines: getGuidelines_(),
+      serverTime: Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss'),
+    };
+    try { cache.put(BOOTSTRAP_CACHE_KEY, JSON.stringify(out), BOOTSTRAP_CACHE_SEC); } catch (_) {}
+    return out;
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+}
+
+function invalidateBootstrap_() {
+  try { CacheService.getScriptCache().remove(BOOTSTRAP_CACHE_KEY); } catch (_) {}
 }
 
 function doPost(e) {
@@ -391,6 +429,7 @@ function setMembers_(body) {
   if (rows.length) {
     sh.getRange(sh.getLastRow() + 1, 1, rows.length, MEMBER_HEADERS.length).setValues(rows);
   }
+  invalidateBootstrap_();
   return { ok: true, count: rows.length };
 }
 
@@ -425,6 +464,7 @@ function addMember_(body) {
     String(body.role || '').trim(),
     now,
   ]);
+  invalidateBootstrap_();
   return { ok: true };
 }
 
@@ -447,6 +487,7 @@ function removeMember_(body) {
         return { ok: false, error: '권한 없음 (다른 계 문원)' };
       }
       sh.deleteRow(i + 2);
+      invalidateBootstrap_();
       return { ok: true };
     }
   }
@@ -785,6 +826,7 @@ function submitEntry_(body) {
     sh.getRange(dupRow, 1, 1, HEADERS.length).setValues([[
       castle, nickname, score, dateKst, note, '갱신', elite, guild,
     ]]);
+    invalidateBootstrap_();
     return { ok: true, updated: true };
   }
 
@@ -794,5 +836,6 @@ function submitEntry_(body) {
   }
 
   sh.appendRow([castle, nickname, score, dateKst, note, '', elite, guild]);
+  invalidateBootstrap_();
   return { ok: true, updated: false };
 }

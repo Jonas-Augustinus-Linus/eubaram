@@ -1307,6 +1307,11 @@ function init() {
     }
   });
 
+  // SW 등록
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+
   // 캐시 즉시 표시 (있으면) — 백그라운드로 최신 데이터 fetch
   const cEntries = readCache("entries");
   const cMembers = readCache("members");
@@ -1318,9 +1323,28 @@ function init() {
     cachedMembers = cMembers;
   }
 
-  // 엔드포인트는 항상 디폴트가 있어서 다이얼로그 자동 오픈 안 함
-  refreshEntries();
-  refreshMembers();
+  // bootstrap 으로 entries + members 한 번에 (실패 시 개별 호출 폴백)
+  refreshViaBootstrap();
+}
+
+async function refreshViaBootstrap() {
+  try {
+    const ep = getEndpoint();
+    if (!ep) return;
+    const res = await fetch(`${ep}?action=bootstrap`);
+    if (!res.ok) throw new Error("bootstrap http " + res.status);
+    const d = await res.json();
+    if (!d.ok) throw new Error("bootstrap not ok");
+    cachedEntries = d.entries || [];
+    cachedMembers = d.members || [];
+    writeCache("entries", cachedEntries);
+    writeCache("members", cachedMembers);
+    renderEntries();
+  } catch (err) {
+    console.warn("bootstrap 실패, 개별 호출로 폴백:", err);
+    refreshEntries();
+    refreshMembers();
+  }
 }
 
 document.addEventListener("DOMContentLoaded", init);

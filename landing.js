@@ -360,9 +360,28 @@ function renderGrid(members, entries, lords) {
 
 // ---- Init ----
 
+async function apiBootstrap() {
+  try {
+    const res = await fetch(`${getEndpoint()}?action=bootstrap`);
+    if (!res.ok) return null;
+    const d = await res.json();
+    if (!d.ok) return null;
+    writeCache("members", d.members || []);
+    writeCache("entries", d.entries || []);
+    writeCache("lords", d.lords || {});
+    writeCache("guidelines", d.guidelines || "");
+    return d;
+  } catch { return null; }
+}
+
 async function init() {
   renderTodayBanner();
   setInterval(renderTodayBanner, 60 * 1000);
+
+  // SW 등록 (있으면)
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
 
   // 1) 캐시 즉시 표시 (있으면)
   const cMembers = readCache("members") || [];
@@ -379,12 +398,20 @@ async function init() {
   }
 
   // 2) 백그라운드로 최신 데이터 페치 → 다시 렌더
-  const [members, entries, lords, guidelines] = await Promise.all([
-    apiMembers(), apiList(), apiCastleLords(), apiGuidelines(),
-  ]);
-  renderGrid(members, entries, lords);
-  renderCastleLords(lords);
-  renderGuidelines(guidelines);
+  // bootstrap (단일 호출) 우선 시도. 실패 시 개별 호출로 폴백.
+  const boot = await apiBootstrap();
+  if (boot) {
+    renderGrid(boot.members || [], boot.entries || [], boot.lords || {});
+    renderCastleLords(boot.lords || {});
+    renderGuidelines(boot.guidelines || "");
+  } else {
+    const [members, entries, lords, guidelines] = await Promise.all([
+      apiMembers(), apiList(), apiCastleLords(), apiGuidelines(),
+    ]);
+    renderGrid(members, entries, lords);
+    renderCastleLords(lords);
+    renderGuidelines(guidelines);
+  }
 }
 
 document.addEventListener("DOMContentLoaded", init);

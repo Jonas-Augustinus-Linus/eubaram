@@ -1016,6 +1016,11 @@ function init() {
     loadMonthly();
   });
 
+  // SW 등록
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+
   // 로그인 상태 확인 (세션 유지)
   if (getUsername() && getPassword()) {
     tryLogin(getUsername(), getPassword()).then((result) => {
