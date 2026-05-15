@@ -829,7 +829,9 @@ async function runMemberOcr() {
     fill.style.width = `${((i + 0.3) / memberOcrFiles.length) * 100}%`;
 
     try {
-      const { data: { text } } = await worker.recognize(file);
+      // 이미지 전처리 후 OCR (인식률 향상)
+      const blob = await preprocessImageForOcr(file).catch(() => file);
+      const { data: { text } } = await worker.recognize(blob);
       const parsed = parseRosterOcrText(text);
       allParsed.push(...parsed);
       if (thumb) {
@@ -845,8 +847,8 @@ async function runMemberOcr() {
 
   try { await worker.terminate(); } catch (_) {}
 
-  // dedupe: 문주 > 부문주 > 일반
-  const rolePri = (r) => (r === "문주" ? 2 : r === "부문주" ? 1 : 0);
+  // dedupe: 문파장 > 부문파장 > 일반(문파원)
+  const rolePri = (r) => (r === "문파장" ? 2 : r === "부문파장" ? 1 : 0);
   const byNick = new Map();
   for (const p of allParsed) {
     const existing = byNick.get(p.nickname);
@@ -857,8 +859,8 @@ async function runMemberOcr() {
   const final = Array.from(byNick.values());
 
   // 검증
-  const leaderCount = final.filter((x) => x.role === "문주").length;
-  const viceCount = final.filter((x) => x.role === "부문주").length;
+  const leaderCount = final.filter((x) => x.role === "문파장").length;
+  const viceCount = final.filter((x) => x.role === "부문파장").length;
 
   // textarea 에 append (또는 비어있으면 그대로 채움)
   const ta = $("#bulkArea");
@@ -870,12 +872,12 @@ async function runMemberOcr() {
 
   // 결과 메시지
   const warnings = [];
-  if (leaderCount === 0) warnings.push("문주 0명 (예상 1명)");
-  else if (leaderCount > 1) warnings.push(`문주 ${leaderCount}명 (예상 1명)`);
-  if (viceCount > 2) warnings.push(`부문주 ${viceCount}명 (예상 2명)`);
-  if (viceCount < 2 && viceCount > 0) warnings.push(`부문주 ${viceCount}명 (예상 2명)`);
+  if (leaderCount === 0) warnings.push("문파장 0명 (예상 1명)");
+  else if (leaderCount > 1) warnings.push(`문파장 ${leaderCount}명 (예상 1명)`);
+  if (viceCount > 2) warnings.push(`부문파장 ${viceCount}명 (예상 2명)`);
+  if (viceCount < 2 && viceCount > 0) warnings.push(`부문파장 ${viceCount}명 (예상 2명)`);
 
-  txt.textContent = `완료 · ${final.length}명 추출 (문주 ${leaderCount}, 부문주 ${viceCount})`;
+  txt.textContent = `완료 · ${final.length}명 추출 (문파장 ${leaderCount}, 부문파장 ${viceCount})`;
   if (warnings.length) {
     msg.textContent = "⚠️ " + warnings.join(" · ") + " — 일괄 입력란을 확인 후 수정해 주세요.";
     msg.className = "hint error";
@@ -890,6 +892,12 @@ async function runMemberOcr() {
 }
 
 function parseRosterOcrText(raw) {
+  // 바람의나라 클래식 문파원 화면 형식:
+  //   [직책] [닉네임] : [기타 정보 ...]
+  // 또는
+  //   [닉네임] [직책] : [기타 정보 ...]
+  // 직책: 문파장 (1명) / 부문파장 (2명) / 문파원 (일반)
+  // ":" 왼쪽만 사용. ":" 가 없으면 줄 전체 사용.
   const out = [];
   const seenLocal = new Set();
   const lines = (raw || "").split(/\r?\n/);
@@ -897,37 +905,43 @@ function parseRosterOcrText(raw) {
     let s = ln.trim();
     if (!s) continue;
 
-    // 역할 마커 탐지 (공백/오인식 허용)
-    let role = "";
-    if (/<\s*<?\s*부\s*문\s*주\s*>?\s*>/.test(s)) role = "부문주";
-    else if (/<\s*<?\s*문\s*주\s*>?\s*>/.test(s)) role = "문주";
-    // 꺽쇠 없는 변형도 일부 캐치 (오인식 대비)
-    else if (/(^|\s)부문주(\s|$)/.test(s)) role = "부문주";
-    else if (/(^|\s)문주(\s|$)/.test(s)) role = "문주";
+    // ":" 또는 "：" (전각) 또는 ";" (오인식) 왼쪽만 사용
+    const colonIdx = s.search(/[:：;]/);
+    let left = colonIdx >= 0 ? s.slice(0, colonIdx) : s;
+    left = left.trim();
+    if (!left) continue;
 
-    // 마커/장식 제거
-    let cleaned = s
+    // 역할 마커 탐지 (오인식 대비: 공백 허용)
+    let role = "";
+    if (/부\s*문\s*파\s*장/.test(left)) role = "부문파장";
+    else if (/문\s*파\s*장/.test(left)) role = "문파장";
+    // 문파원은 명시적 마커가 있을 수도 있으나 기본값이라 role 비워둠
+
+    // 직책 단어 + 장식 제거
+    let cleaned = left
+      .replace(/부\s*문\s*파\s*장/g, " ")
+      .replace(/문\s*파\s*장/g, " ")
+      .replace(/문\s*파\s*원/g, " ")
       .replace(/<<[^>]*>>/g, " ")
       .replace(/<[^>]*>/g, " ")
       .replace(/【[^】]*】/g, " ")
       .replace(/\[[^\]]*\]/g, " ")
-      .replace(/\([^)]*\)/g, " ")
-      .replace(/(^|\s)(부문주|문주)(\s|$)/g, " ");
+      .replace(/\([^)]*\)/g, " ");
 
     cleaned = cleaned.replace(/\s+/g, " ").trim();
     if (!cleaned) continue;
 
-    // 한글 포함 1~6자 토큰 우선
+    // 토큰 분리 후 닉네임 추출 (한글 포함 1~6자 우선)
     const tokens = cleaned.split(/\s+/);
     let nickname = "";
     for (const t of tokens) {
       const c = t.replace(/[^가-힣ㄱ-ㆎa-zA-Z0-9]/g, "");
-      if (c && c.length <= 6 && /[가-힣]/.test(c)) {
+      if (c && c.length >= 1 && c.length <= 6 && /[가-힣]/.test(c)) {
         nickname = c;
         break;
       }
     }
-    // 폴백: 한글 없는 경우 영숫자 토큰
+    // 폴백: 영숫자만으로 된 닉네임
     if (!nickname) {
       for (const t of tokens) {
         const c = t.replace(/[^가-힣ㄱ-ㆎa-zA-Z0-9]/g, "");
@@ -936,12 +950,50 @@ function parseRosterOcrText(raw) {
     }
     if (!nickname) continue;
     // 헤더성 단어 필터
-    if (/^(문파|문파원|목록|레벨|직업|이름|닉네임|상태|접속|미접속|순위|등급)$/.test(nickname)) continue;
+    if (/^(문파|문파원|문파장|부문파장|목록|레벨|직업|이름|닉네임|상태|접속|미접속|순위|등급|레벨|레)$/.test(nickname)) continue;
     if (seenLocal.has(nickname)) continue;
     seenLocal.add(nickname);
     out.push({ nickname, role });
   }
   return out;
+}
+
+// OCR 용 이미지 전처리: 스케일업 + 그레이스케일 + 대비 향상.
+// 게임 UI 의 작은 글씨 인식률을 크게 높임.
+async function preprocessImageForOcr(file, targetLong = 2200, contrast = 1.5) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = reject;
+    fr.readAsDataURL(file);
+  });
+  const img = await new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.src = dataUrl;
+  });
+  const longSide = Math.max(img.width, img.height);
+  const scale = longSide < targetLong ? targetLong / longSide : 1;
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, w, h);
+  const data = ctx.getImageData(0, 0, w, h);
+  const px = data.data;
+  for (let i = 0; i < px.length; i += 4) {
+    const g = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+    let v = (g - 128) * contrast + 128;
+    if (v < 0) v = 0; else if (v > 255) v = 255;
+    px[i] = px[i + 1] = px[i + 2] = v;
+  }
+  ctx.putImageData(data, 0, 0);
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
 }
 
 async function handleAddMember() {
