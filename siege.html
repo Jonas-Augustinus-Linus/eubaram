@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>공성신청 · EU연합 통합시스템</title>
-  <link rel="stylesheet" href="styles.css?v=20" />
+  <link rel="stylesheet" href="styles.css?v=21" />
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
 </head>
 <body>
@@ -116,6 +116,21 @@
         <input type="text" id="note" placeholder="예: 점수용병, 참전용병 등" maxlength="80" enterkeyhint="done" />
       </label>
 
+      <details class="multi-acc-section" id="multiAccSection">
+        <summary class="multi-acc-toggle">
+          <span class="multi-acc-toggle-label">➕ 다계정 추가 등록</span>
+          <span class="multi-acc-count" id="multiAccCount">선택사항</span>
+        </summary>
+        <div class="multi-acc-hint">
+          여러 계정의 점수를 한 번에 등록합니다. 각 행에 닉네임 + 점수 + 정예 선택 후 위 '✓ 신청하기' 또는 '⟳ 갱신하기' 를 누르면 본 계정과 함께 일괄 등록됩니다. <strong>📸</strong> 버튼으로 사진에서 점수 인식 가능.
+        </div>
+        <div class="multi-acc-list" id="multiAccList"></div>
+        <div class="multi-acc-actions">
+          <button type="button" class="ghost small-btn" id="addAccBtn">+ 계정 추가</button>
+          <button type="button" class="ghost small-btn" id="clearAccBtn" hidden>✕ 모두 비우기</button>
+        </div>
+      </details>
+
       <div class="submit-row">
         <button type="button" class="primary submit-btn" id="submitBtn">
           <span>✓ 신청하기</span>
@@ -222,6 +237,6 @@
     </div>
   </footer>
 
-  <script src="app.js?v=20"></script>
+  <script src="app.js?v=21"></script>
 </body>
 </html>

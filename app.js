@@ -574,40 +574,89 @@ function validateForm(ctx) {
 async function doSubmit(asUpdate) {
   setMessage("");
   const ctx = getCastleContext();
-  const v = validateForm(ctx);
-  if (!v) return;
+  const mainV = validateForm(ctx);
+  if (!mainV) return;
 
-  // 클라이언트측 사전 체크 (서버에서 최종 검증)
-  const todayStr = todayKstString();
-  const dup = findDuplicate(v.nickname, ctx.castle, todayStr);
-  if (asUpdate && !dup) {
-    setMessage(`[${v.nickname}] 닉네임으로 ${ctx.castle} 신청 내역이 없습니다. '신청하기' 를 눌러주세요`, "error");
+  // 다계정 추가 행들 수집/검증
+  const extras = collectMultiAccData();
+  const extraErrors = [];
+  const seenNicks = new Set([mainV.nickname.toLowerCase()]);
+  for (let i = 0; i < extras.length; i++) {
+    const e = extras[i];
+    const tag = `#${i + 2}`;
+    if (!e.nickname) { extraErrors.push(`${tag} 닉네임 비어있음`); continue; }
+    if (!e.score) { extraErrors.push(`${tag} ${e.nickname}: 점수 비어있음`); continue; }
+    if (!e.elite) { extraErrors.push(`${tag} ${e.nickname}: 정예 미선택`); continue; }
+    if (seenNicks.has(e.nickname.toLowerCase())) { extraErrors.push(`${tag} ${e.nickname}: 닉네임 중복`); continue; }
+    if (!isMemberAllowed(e.nickname)) { extraErrors.push(`${tag} ${e.nickname}: 등록 문원 아님`); continue; }
+    seenNicks.add(e.nickname.toLowerCase());
+  }
+  if (extraErrors.length) {
+    setMessage("⚠️ 다계정 입력 확인: " + extraErrors.join(" · "), "error");
     return;
   }
-  if (!asUpdate && dup) {
-    setMessage(`[${dup.nickname}] 이미 ${ctx.castle} 에 ${dup.score} 점이 등록되어 있습니다. 점수가 올랐으면 '⟳ 갱신하기' 를 눌러주세요`, "error");
-    return;
+
+  // 전체 등록 대상 합치기 (메인 #1 + 다계정 #2..)
+  const allEntries = [
+    { nickname: mainV.nickname, score: mainV.score, note: mainV.note, elite: mainV.elite, _row: null },
+    ...extras.map((e) => ({ nickname: e.nickname, score: e.score, note: "", elite: e.elite, _row: e._row })),
+  ];
+
+  // 중복 체크 (이미 등록됐는지)
+  const todayStr = todayKstString();
+  for (let i = 0; i < allEntries.length; i++) {
+    const a = allEntries[i];
+    const dup = findDuplicate(a.nickname, ctx.castle, todayStr);
+    const tag = `#${i + 1}`;
+    if (asUpdate && !dup) {
+      setMessage(`${tag} [${a.nickname}] ${ctx.castle} 신청 내역이 없습니다. 첫 신청은 '✓ 신청하기' 를 사용하세요`, "error");
+      return;
+    }
+    if (!asUpdate && dup) {
+      setMessage(`${tag} [${dup.nickname}] 이미 ${ctx.castle}에 ${dup.score}점 등록됨. 점수 갱신은 '⟳ 갱신하기' 사용`, "error");
+      return;
+    }
   }
 
   const submitBtn = $("#submitBtn");
   const updateBtn = $("#updateBtn");
   submitBtn.disabled = true;
   updateBtn.disabled = true;
-  setMessage(asUpdate ? "갱신 중…" : "신청 중…");
-  try {
-    const payload = {
-      action: "submit",
-      nickname: v.nickname,
-      score: v.score,
-      note: v.note,
-      elite: v.elite,
-      castle: ctx.castle,
-      dateKst: formatKstDateTime(),
-      update: !!asUpdate,
-      guild: lookupGuild(v.nickname),
-    };
-    const res = await apiSubmit(payload);
-    setMessage(res.updated ? `갱신 완료 ✅ (${v.nickname} → ${v.score})` : `신청 완료 ✅ (${v.nickname} · ${v.score})`, "success");
+
+  const results = [];
+  for (let i = 0; i < allEntries.length; i++) {
+    const a = allEntries[i];
+    setMessage(`${i + 1}/${allEntries.length} ${asUpdate ? "갱신" : "신청"} 중… (${a.nickname})`);
+    try {
+      const payload = {
+        action: "submit",
+        nickname: a.nickname,
+        score: a.score,
+        note: a.note,
+        elite: a.elite,
+        castle: ctx.castle,
+        dateKst: formatKstDateTime(),
+        update: !!asUpdate,
+        guild: lookupGuild(a.nickname),
+      };
+      await apiSubmit(payload);
+      results.push({ ok: true, nickname: a.nickname, score: a.score, _row: a._row });
+    } catch (err) {
+      results.push({ ok: false, nickname: a.nickname, error: err.message, _row: a._row });
+    }
+  }
+
+  const okResults = results.filter((r) => r.ok);
+  const failResults = results.filter((r) => !r.ok);
+  const verb = asUpdate ? "갱신" : "신청";
+
+  if (failResults.length === 0) {
+    if (okResults.length === 1) {
+      setMessage(`${verb} 완료 ✅ (${okResults[0].nickname} · ${okResults[0].score})`, "success");
+    } else {
+      const list = okResults.map((r) => `${r.nickname}(${r.score})`).join(", ");
+      setMessage(`✅ ${okResults.length}건 ${verb} 완료: ${list}`, "success");
+    }
     // 폼 초기화 (닉네임은 유지)
     $("#score").value = "";
     $("#note").value = "";
@@ -620,12 +669,159 @@ async function doSubmit(asUpdate) {
     $("#rawOcrSection").hidden = true;
     $("#fileInput").value = "";
     lastUploadedFile = null;
-    await refreshEntries();
+    // 다계정 행 비우기
+    clearMultiAccRows();
+  } else {
+    // 실패한 항목의 행은 그대로 두고, 성공한 다계정 행만 제거
+    okResults.forEach((r) => { if (r._row) r._row.remove(); });
+    renumberMultiAcc();
+    updateMultiAccCount();
+    const okTxt = okResults.length ? `성공 ${okResults.length}건 (${okResults.map((r) => r.nickname).join(", ")})` : "";
+    const failTxt = `실패 ${failResults.length}건: ${failResults.map((r) => `${r.nickname}-${r.error}`).join(" / ")}`;
+    setMessage(`⚠️ ${[okTxt, failTxt].filter(Boolean).join(" · ")}`, "error");
+  }
+
+  submitBtn.disabled = false;
+  updateBtn.disabled = false;
+  await refreshEntries();
+}
+
+// ----- 다계정 추가 등록 -----
+
+let multiAccIdSeq = 0;
+
+function setupMultiAcc() {
+  const addBtn = $("#addAccBtn");
+  const clearBtn = $("#clearAccBtn");
+  if (!addBtn) return;
+  addBtn.addEventListener("click", () => {
+    const sec = $("#multiAccSection");
+    if (sec && !sec.open) sec.open = true;
+    addMultiAccRow();
+  });
+  if (clearBtn) clearBtn.addEventListener("click", () => clearMultiAccRows());
+  updateMultiAccCount();
+}
+
+function addMultiAccRow() {
+  const list = $("#multiAccList");
+  if (!list) return;
+  const id = ++multiAccIdSeq;
+  const row = document.createElement("div");
+  row.className = "multi-acc-row";
+  row.dataset.id = String(id);
+  row.innerHTML = `
+    <span class="multi-acc-num"></span>
+    <input type="text" class="multi-nick" placeholder="닉네임" maxlength="6" autocomplete="off" spellcheck="false" enterkeyhint="next">
+    <input type="text" class="multi-score" placeholder="점수" inputmode="decimal" enterkeyhint="next">
+    <label class="multi-ocr-btn" title="사진에서 점수 인식">
+      <span class="ocr-emoji">📸</span>
+      <input type="file" accept="image/*">
+    </label>
+    <div class="multi-elite-mini" role="radiogroup" aria-label="정예참전 여부">
+      <button type="button" data-v="O" title="⭕ 참전" aria-label="참전">⭕</button>
+      <button type="button" data-v="X" title="❌ 불참" aria-label="불참">❌</button>
+      <button type="button" data-v="최대한 참여" title="⏳ 최대한 참여" aria-label="최대한 참여">⏳</button>
+    </div>
+    <button type="button" class="multi-rm" title="이 계정 제거" aria-label="제거">✕</button>
+  `;
+  list.appendChild(row);
+
+  // remove
+  row.querySelector(".multi-rm").addEventListener("click", () => {
+    row.remove();
+    renumberMultiAcc();
+    updateMultiAccCount();
+  });
+
+  // elite buttons
+  row.querySelectorAll(".multi-elite-mini button").forEach((b) => {
+    b.addEventListener("click", () => {
+      row.querySelectorAll(".multi-elite-mini button").forEach((x) => x.classList.remove("selected"));
+      b.classList.add("selected");
+    });
+  });
+
+  // OCR
+  const fileInput = row.querySelector(".multi-ocr-btn input[type='file']");
+  fileInput.addEventListener("change", (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) runRowOcr(row, f);
+  });
+
+  renumberMultiAcc();
+  updateMultiAccCount();
+  // focus 첫 input
+  row.querySelector(".multi-nick").focus();
+}
+
+function renumberMultiAcc() {
+  const rows = $$("#multiAccList .multi-acc-row");
+  rows.forEach((r, i) => {
+    const num = r.querySelector(".multi-acc-num");
+    if (num) num.textContent = `#${i + 2}`;
+  });
+}
+
+function updateMultiAccCount() {
+  const n = $$("#multiAccList .multi-acc-row").length;
+  const el = $("#multiAccCount");
+  const clearBtn = $("#clearAccBtn");
+  if (el) {
+    if (n > 0) {
+      el.textContent = `${n}개 추가됨`;
+      el.classList.add("active");
+    } else {
+      el.textContent = "선택사항";
+      el.classList.remove("active");
+    }
+  }
+  if (clearBtn) clearBtn.hidden = n === 0;
+}
+
+function clearMultiAccRows() {
+  const list = $("#multiAccList");
+  if (list) list.innerHTML = "";
+  updateMultiAccCount();
+}
+
+function collectMultiAccData() {
+  const rows = $$("#multiAccList .multi-acc-row");
+  const out = [];
+  for (const r of rows) {
+    const nickname = r.querySelector(".multi-nick").value.trim();
+    const score = r.querySelector(".multi-score").value.trim();
+    const eliteBtn = r.querySelector(".multi-elite-mini button.selected");
+    const elite = eliteBtn ? eliteBtn.dataset.v : "";
+    // 완전히 빈 행은 무시
+    if (!nickname && !score && !elite) continue;
+    out.push({ nickname, score, elite, _row: r });
+  }
+  return out;
+}
+
+async function runRowOcr(row, file) {
+  const btn = row.querySelector(".multi-ocr-btn");
+  btn.classList.remove("done");
+  btn.classList.add("processing");
+  try {
+    const { text } = await runOcr(file);
+    const { primary, list } = extractScoreCandidates(text);
+    const pick = primary || list[0];
+    btn.classList.remove("processing");
+    if (pick) {
+      row.querySelector(".multi-score").value = pick;
+      btn.classList.add("done");
+    } else {
+      setMessage(`#${Array.from(row.parentElement.children).indexOf(row) + 2} 사진에서 점수를 찾지 못함. 직접 입력해 주세요.`, "error");
+    }
   } catch (err) {
-    setMessage(`${asUpdate ? "갱신" : "신청"} 실패: ${err.message}`, "error");
+    btn.classList.remove("processing");
+    setMessage(`사진 인식 실패: ${err.message}`, "error");
   } finally {
-    submitBtn.disabled = false;
-    updateBtn.disabled = false;
+    // 파일 input 초기화 (같은 파일 재선택 가능하도록)
+    const fi = btn.querySelector("input[type='file']");
+    if (fi) fi.value = "";
   }
 }
 
@@ -963,6 +1159,9 @@ function init() {
     cropOverlay.addEventListener("touchmove", onCropMove, { passive: false });
     cropOverlay.addEventListener("touchend", onCropUp);
   }
+
+  // 다계정 추가 등록
+  setupMultiAcc();
 
   $("#openConfig").addEventListener("click", (e) => {
     e.preventDefault();

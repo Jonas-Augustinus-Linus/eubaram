@@ -573,6 +573,248 @@ input, select, textarea, button { font: inherit; color: inherit; }
 .icon-btn { width: 36px; height: 36px; padding: 0; min-height: 36px; }
 .icon-btn svg { display: block; }
 
+/* ===== 다계정 추가 등록 ===== */
+.multi-acc-section {
+  margin: 6px 0 14px;
+  border: 1px dashed rgba(255, 184, 74, 0.4);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 184, 74, 0.04);
+  overflow: hidden;
+}
+
+.multi-acc-toggle {
+  cursor: pointer;
+  padding: 11px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  list-style: none;
+}
+
+.multi-acc-toggle::-webkit-details-marker { display: none; }
+.multi-acc-toggle::after {
+  content: "▼";
+  font-size: 11px;
+  color: var(--muted);
+  transition: transform 0.2s;
+  margin-left: 8px;
+}
+.multi-acc-section[open] .multi-acc-toggle::after { transform: rotate(180deg); }
+
+.multi-acc-toggle:hover { background: rgba(255, 184, 74, 0.06); }
+.multi-acc-toggle-label { display: inline-flex; align-items: center; gap: 6px; }
+.multi-acc-count {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-weight: 500;
+  background: var(--panel-2);
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+.multi-acc-count.active {
+  background: rgba(255, 184, 74, 0.18);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.multi-acc-section[open] .multi-acc-toggle { border-bottom: 1px solid var(--border); }
+
+.multi-acc-hint {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid var(--border);
+  line-height: 1.5;
+}
+
+.multi-acc-hint strong { color: var(--accent); }
+
+.multi-acc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.multi-acc-list:empty { display: none; }
+
+.multi-acc-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  position: relative;
+  transition: border-color 0.15s;
+}
+
+.multi-acc-row:focus-within { border-color: var(--accent); }
+
+.multi-acc-num {
+  flex: 0 0 auto;
+  font-weight: 800;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  min-width: 26px;
+  background: rgba(255, 184, 74, 0.12);
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.multi-acc-row input[type="text"] {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 14px;
+  outline: none;
+  min-width: 0;
+  transition: border-color 0.15s;
+}
+
+.multi-acc-row input[type="text"]:focus { border-color: var(--accent); }
+
+.multi-nick {
+  flex: 1 1 110px;
+  font-weight: 600;
+}
+
+.multi-score {
+  flex: 1 1 86px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.multi-ocr-btn {
+  flex: 0 0 auto;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 15px;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.multi-ocr-btn:hover { border-color: var(--accent); background: var(--panel-3); }
+.multi-ocr-btn input[type="file"] { display: none; }
+
+.multi-ocr-btn.processing { pointer-events: none; }
+.multi-ocr-btn.processing > .ocr-emoji { opacity: 0; }
+.multi-ocr-btn.processing::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.multi-ocr-btn.done {
+  background: rgba(46, 160, 67, 0.18);
+  border-color: var(--success);
+  color: #69d586;
+}
+
+.multi-elite-mini {
+  flex: 0 0 auto;
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--panel-2);
+  border-radius: 7px;
+  border: 1px solid var(--border);
+}
+
+.multi-elite-mini button {
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  padding: 6px 8px;
+  font-size: 14px;
+  cursor: pointer;
+  min-width: 32px;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+}
+
+.multi-elite-mini button:hover { background: rgba(255, 184, 74, 0.08); }
+
+.multi-elite-mini button.selected {
+  background: rgba(255, 184, 74, 0.22);
+  outline: 1px solid var(--accent);
+}
+
+.multi-rm {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  width: 32px;
+  height: 32px;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.multi-rm:hover {
+  background: rgba(248, 81, 73, 0.18);
+  color: var(--danger);
+  border-color: rgba(248, 81, 73, 0.4);
+}
+
+.multi-acc-actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 12px 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .multi-acc-row { padding: 7px; gap: 5px; }
+  .multi-acc-num { font-size: 11.5px; padding: 3px 7px; min-width: 22px; }
+  .multi-acc-row input[type="text"] { padding: 7px 9px; font-size: 13.5px; }
+  .multi-nick { flex: 1 1 90px; }
+  .multi-score { flex: 1 1 72px; }
+  .multi-ocr-btn { width: 32px; height: 32px; font-size: 13px; }
+  .multi-elite-mini button { padding: 5px 6px; min-width: 28px; min-height: 28px; font-size: 13px; }
+  .multi-rm { width: 30px; height: 30px; }
+  .multi-acc-toggle { padding: 10px 12px; font-size: 13.5px; }
+  .multi-acc-hint { font-size: 11.5px; padding: 9px 12px; }
+}
+
 /* ===== Messages / hints ===== */
 
 .hint {
