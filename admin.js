@@ -778,11 +778,6 @@ function renderOcrPreviews() {
 
 async function runMemberOcr() {
   if (!memberOcrFiles.length) return;
-  if (typeof Tesseract === "undefined") {
-    $("#ocrResultMsg").textContent = "OCR 엔진 로드 실패. 네트워크를 확인하고 새로고침 해주세요.";
-    $("#ocrResultMsg").className = "hint error";
-    return;
-  }
 
   const runBtn = $("#runOcrBtn");
   const clearBtn = $("#clearOcrBtn");
