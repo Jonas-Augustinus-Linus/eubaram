@@ -80,6 +80,18 @@ function setEndpoint(url) {
 
 // ----- API -----
 
+const CACHE_PREFIX = "eubaram_cache_";
+function readCache(key) {
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + key);
+    if (!raw) return null;
+    return JSON.parse(raw).data;
+  } catch { return null; }
+}
+function writeCache(key, data) {
+  try { localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ ts: Date.now(), data })); } catch {}
+}
+
 async function apiList() {
   const ep = getEndpoint();
   if (!ep) return [];
@@ -88,7 +100,9 @@ async function apiList() {
   if (!res.ok) throw new Error(`목록 조회 실패 (HTTP ${res.status})`);
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "목록 조회 실패");
-  return data.entries || [];
+  const out = data.entries || [];
+  writeCache("entries", out);
+  return out;
 }
 
 async function apiMembers() {
@@ -99,7 +113,9 @@ async function apiMembers() {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "");
-  return data.members || [];
+  const out = data.members || [];
+  writeCache("members", out);
+  return out;
 }
 
 async function apiSubmit(payload) {
@@ -117,7 +133,25 @@ async function apiSubmit(payload) {
   return data;
 }
 
-// ----- OCR -----
+// ----- OCR (Tesseract 지연 로드) -----
+
+let _tesseractLoadingPromise = null;
+
+function ensureTesseractLoaded() {
+  if (typeof Tesseract !== "undefined") return Promise.resolve();
+  if (_tesseractLoadingPromise) return _tesseractLoadingPromise;
+  _tesseractLoadingPromise = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js";
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Tesseract.js 로드 실패"));
+    document.head.appendChild(s);
+  });
+  return _tesseractLoadingPromise;
+}
+
+
 
 // 게임 스크린샷에는 "등록한 공성전 참가점수 : 2818.23" 형태로 표기됨.
 // 이 라벨 뒤의 숫자를 1순위 후보로 잡고, 나머지는 보조 후보로 추가.
@@ -268,6 +302,8 @@ async function runOcrRemote(file) {
 
 // 클라이언트 폴백 OCR (Tesseract.js) - 전처리 후 실행, 단어 레벨 데이터까지 추출
 async function runOcrLocal(file) {
+  $("#ocrStatusText").textContent = "OCR 엔진 로드 중…";
+  await ensureTesseractLoaded();
   $("#ocrStatusText").textContent = "이미지 전처리 중…";
   const blob = await preprocessForOcr(file, 2400, 1.6);
   $("#ocrStatusText").textContent = "Tesseract OCR 실행 중…";
@@ -1107,9 +1143,11 @@ async function runCropOcr() {
 
   endCropMode();
   $("#ocrStatus").hidden = false;
-  $("#ocrStatusText").textContent = "선택 영역 OCR 실행 중…";
+  $("#ocrStatusText").textContent = "OCR 엔진 로드 중…";
 
   try {
+    await ensureTesseractLoaded();
+    $("#ocrStatusText").textContent = "선택 영역 OCR 실행 중…";
     // 숫자/소수점 위주로 인식 - 디지트 화이트리스트
     const result = await Tesseract.recognize(blob, "eng", {
       logger: (msg) => {
@@ -1268,6 +1306,17 @@ function init() {
       titleClicks = 0;
     }
   });
+
+  // 캐시 즉시 표시 (있으면) — 백그라운드로 최신 데이터 fetch
+  const cEntries = readCache("entries");
+  const cMembers = readCache("members");
+  if (Array.isArray(cEntries) && cEntries.length) {
+    cachedEntries = cEntries;
+    renderEntries();
+  }
+  if (Array.isArray(cMembers) && cMembers.length) {
+    cachedMembers = cMembers;
+  }
 
   // 엔드포인트는 항상 디폴트가 있어서 다이얼로그 자동 오픈 안 함
   refreshEntries();

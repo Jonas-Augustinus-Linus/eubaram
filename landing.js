@@ -69,10 +69,27 @@ function renderTodayBanner() {
   }
 }
 
-// ---- API ----
+// ---- API + SWR 캐시 ----
 
 function getEndpoint() {
   return localStorage.getItem("juseter_endpoint") || DEFAULT_ENDPOINT;
+}
+
+const CACHE_PREFIX = "eubaram_cache_";
+
+function readCache(key) {
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + key);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    return obj && "data" in obj ? obj.data : null;
+  } catch { return null; }
+}
+
+function writeCache(key, data) {
+  try {
+    localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ ts: Date.now(), data }));
+  } catch {}
 }
 
 async function apiList() {
@@ -80,7 +97,9 @@ async function apiList() {
     const res = await fetch(`${getEndpoint()}?action=list`);
     if (!res.ok) return [];
     const d = await res.json();
-    return d.entries || [];
+    const out = d.entries || [];
+    writeCache("entries", out);
+    return out;
   } catch { return []; }
 }
 
@@ -89,7 +108,9 @@ async function apiMembers() {
     const res = await fetch(`${getEndpoint()}?action=members`);
     if (!res.ok) return [];
     const d = await res.json();
-    return d.members || [];
+    const out = d.members || [];
+    writeCache("members", out);
+    return out;
   } catch { return []; }
 }
 
@@ -98,7 +119,9 @@ async function apiCastleLords() {
     const res = await fetch(`${getEndpoint()}?action=castleLords`);
     if (!res.ok) return {};
     const d = await res.json();
-    return d.lords || {};
+    const out = d.lords || {};
+    writeCache("lords", out);
+    return out;
   } catch { return {}; }
 }
 
@@ -107,7 +130,9 @@ async function apiGuidelines() {
     const res = await fetch(`${getEndpoint()}?action=guidelines`);
     if (!res.ok) return "";
     const d = await res.json();
-    return d.text || "";
+    const out = d.text || "";
+    writeCache("guidelines", out);
+    return out;
   } catch { return ""; }
 }
 
@@ -339,9 +364,21 @@ async function init() {
   renderTodayBanner();
   setInterval(renderTodayBanner, 60 * 1000);
 
-  // skeleton 렌더 (members/entries 없이도 그리드는 보임)
-  renderGrid([], [], {});
+  // 1) 캐시 즉시 표시 (있으면)
+  const cMembers = readCache("members") || [];
+  const cEntries = readCache("entries") || [];
+  const cLords = readCache("lords") || {};
+  const cGuidelines = readCache("guidelines");
+  const hasCache = cMembers.length || cEntries.length || Object.keys(cLords).length || cGuidelines;
+  if (hasCache) {
+    renderGrid(cMembers, cEntries, cLords);
+    renderCastleLords(cLords);
+    if (typeof cGuidelines === "string") renderGuidelines(cGuidelines);
+  } else {
+    renderGrid([], [], {});
+  }
 
+  // 2) 백그라운드로 최신 데이터 페치 → 다시 렌더
   const [members, entries, lords, guidelines] = await Promise.all([
     apiMembers(), apiList(), apiCastleLords(), apiGuidelines(),
   ]);

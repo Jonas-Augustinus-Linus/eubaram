@@ -683,6 +683,21 @@ function handleLoadCurrent() {
 let memberOcrFiles = [];
 const MEMBER_OCR_MAX = 15;
 
+let _tesseractLoadingPromise = null;
+function ensureTesseractLoaded() {
+  if (typeof Tesseract !== "undefined") return Promise.resolve();
+  if (_tesseractLoadingPromise) return _tesseractLoadingPromise;
+  _tesseractLoadingPromise = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js";
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Tesseract.js 로드 실패"));
+    document.head.appendChild(s);
+  });
+  return _tesseractLoadingPromise;
+}
+
 function setupMemberOcr() {
   const fileInput = $("#memberOcrFiles");
   const runBtn = $("#runOcrBtn");
@@ -787,7 +802,7 @@ async function runMemberOcr() {
   msg.textContent = "";
   msg.className = "hint";
 
-  txt.textContent = "OCR 엔진 초기화 (최초 1회 ~12MB 다운로드)…";
+  txt.textContent = "OCR 엔진 로드 중 (최초 1회 ~12MB 다운로드)…";
   fill.style.width = "2%";
 
   // 이전 thumb 상태 초기화
@@ -797,6 +812,8 @@ async function runMemberOcr() {
 
   let worker;
   try {
+    await ensureTesseractLoaded();
+    txt.textContent = "OCR 엔진 초기화 중…";
     worker = await Tesseract.createWorker("kor", 1);
   } catch (err) {
     txt.textContent = "OCR 엔진 초기화 실패";
