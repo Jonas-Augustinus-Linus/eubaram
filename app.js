@@ -281,13 +281,14 @@ function blobToBase64(blob) {
   });
 }
 
-// 서버 OCR (Google Drive API 사용) - Tesseract 보다 훨씬 정확
+// 서버 OCR (Apps Script → Google Vision API 또는 Drive OCR)
+// Vision 우선, 실패시 Drive 폴백 (서버측에서 자동 분기)
 async function runOcrRemote(file) {
   const ep = getEndpoint();
   if (!ep) throw new Error("엔드포인트 미설정");
-  $("#ocrStatusText").textContent = "이미지 리사이즈 중…";
+  $("#ocrStatusText").textContent = "이미지 압축 중…";
   const blob = await resizeImage(file, 1600, 0.85);
-  $("#ocrStatusText").textContent = "Google Drive OCR 실행 중… (3-10초)";
+  $("#ocrStatusText").textContent = "서버 OCR 실행 중…";
   const b64 = await blobToBase64(blob);
   const res = await fetch(ep, {
     method: "POST",
@@ -297,7 +298,7 @@ async function runOcrRemote(file) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "OCR 실패");
-  return data.text || "";
+  return { text: data.text || "", engine: data.engine || "remote" };
 }
 
 // 클라이언트 폴백 OCR (Tesseract.js) - 전처리 후 실행, 단어 레벨 데이터까지 추출
@@ -323,13 +324,23 @@ async function runOcrLocal(file) {
   return { text, words };
 }
 
-// Drive 가 분당 ~1-5회로 매우 짠 제한이라 기본은 Tesseract 만 사용.
-// 'drive' 엔진을 명시적으로 호출하려면 별도 동작 필요 (현재 비활성).
+// 우선순위: 서버 OCR (Vision API) → 실패 시 Tesseract 폴백.
+// Vision 인식률은 Tesseract 보다 압도적으로 높고 처리도 더 빠름.
 async function runOcr(file) {
-  const { text, words } = await runOcrLocal(file);
-  // 단어 후보들도 텍스트에 합쳐서 (extractScoreCandidates 가 정수/소수 추출하게)
-  const combinedText = text + "\n" + (words || []).join(" ");
-  return { text: combinedText, engine: "tesseract" };
+  try {
+    const { text, engine } = await runOcrRemote(file);
+    if (text && text.trim().length > 0) {
+      return { text, engine };
+    }
+    // 텍스트가 비면 Tesseract 폴백
+    throw new Error("empty");
+  } catch (err) {
+    console.warn("서버 OCR 실패, Tesseract 폴백:", err.message);
+    $("#ocrStatusText").textContent = "Tesseract 폴백 실행 중…";
+    const { text, words } = await runOcrLocal(file);
+    const combinedText = text + "\n" + (words || []).join(" ");
+    return { text: combinedText, engine: "tesseract" };
+  }
 }
 
 // ----- DOM helpers -----

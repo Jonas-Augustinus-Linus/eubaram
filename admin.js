@@ -776,6 +776,66 @@ function renderOcrPreviews() {
   });
 }
 
+// 이미지 리사이즈 + JPEG 압축 (Apps Script 업로드 페이로드 최소화)
+async function resizeImage(file, maxDim = 1600, quality = 0.85) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = reject;
+    fr.readAsDataURL(file);
+  });
+  const img = await new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.src = dataUrl;
+  });
+  const ratio = Math.min(1, maxDim / Math.max(img.width, img.height));
+  const w = Math.round(img.width * ratio);
+  const h = Math.round(img.height * ratio);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, w, h);
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => {
+      const s = fr.result || "";
+      const i = s.indexOf(",");
+      resolve(i >= 0 ? s.slice(i + 1) : s);
+    };
+    fr.onerror = reject;
+    fr.readAsDataURL(blob);
+  });
+}
+
+async function callServerOcr(blob) {
+  const ep = getEndpoint();
+  if (!ep) throw new Error("엔드포인트 미설정");
+  const b64 = await blobToBase64(blob);
+  const res = await fetch(ep, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "ocr", image: b64, mime: blob.type || "image/jpeg" }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "OCR 실패");
+  return data.text || "";
+}
+
+async function tesseractOcr(file) {
+  await ensureTesseractLoaded();
+  const blob = await preprocessImageForOcr(file).catch(() => file);
+  const { data: { text } } = await Tesseract.recognize(blob, "kor");
+  return text || "";
+}
+
 async function runMemberOcr() {
   if (!memberOcrFiles.length) return;
 
@@ -797,55 +857,64 @@ async function runMemberOcr() {
   msg.textContent = "";
   msg.className = "hint";
 
-  txt.textContent = "OCR 엔진 로드 중 (최초 1회 ~12MB 다운로드)…";
   fill.style.width = "2%";
+  txt.textContent = "이미지 압축 중…";
 
   // 이전 thumb 상태 초기화
   document.querySelectorAll(".ocr-thumb").forEach((t) => {
     t.classList.remove("processing", "done");
   });
 
-  let worker;
-  try {
-    await ensureTesseractLoaded();
-    txt.textContent = "OCR 엔진 초기화 중…";
-    worker = await Tesseract.createWorker("kor", 1);
-  } catch (err) {
-    txt.textContent = "OCR 엔진 초기화 실패";
-    msg.textContent = "에러: " + err.message;
-    msg.className = "hint error";
-    runBtn.disabled = false;
-    clearBtn.disabled = false;
-    if (pickLabel) pickLabel.style.pointerEvents = "";
-    return;
-  }
+  // 1) 모든 이미지를 병렬로 압축
+  const compressed = await Promise.all(memberOcrFiles.map((f) => resizeImage(f, 1600, 0.85).catch(() => f)));
 
+  // 2) 서버 OCR (Vision API) 병렬 호출 — 최대 동시 3개로 제한
+  const CONCURRENCY = 3;
   const allParsed = [];
-  for (let i = 0; i < memberOcrFiles.length; i++) {
-    const file = memberOcrFiles[i];
+  let completed = 0;
+  let serverFailedAll = true;
+
+  async function processOne(i) {
     const thumb = document.querySelector(`.ocr-thumb[data-idx="${i}"]`);
     if (thumb) thumb.classList.add("processing");
-    txt.textContent = `${i + 1}/${memberOcrFiles.length} 인식 중… (${file.name})`;
-    fill.style.width = `${((i + 0.3) / memberOcrFiles.length) * 100}%`;
-
+    const file = compressed[i];
+    let text = "";
     try {
-      // 이미지 전처리 후 OCR (인식률 향상)
-      const blob = await preprocessImageForOcr(file).catch(() => file);
-      const { data: { text } } = await worker.recognize(blob);
+      text = await callServerOcr(file);
+      serverFailedAll = false;
+    } catch (err) {
+      console.warn(`이미지 #${i+1} 서버 OCR 실패:`, err.message);
+      // Tesseract 폴백
+      try {
+        text = await tesseractOcr(memberOcrFiles[i]);
+        serverFailedAll = false;
+      } catch (err2) {
+        console.warn(`이미지 #${i+1} Tesseract 폴백도 실패:`, err2.message);
+      }
+    }
+    if (text) {
       const parsed = parseRosterOcrText(text);
       allParsed.push(...parsed);
-      if (thumb) {
-        thumb.classList.remove("processing");
-        thumb.classList.add("done");
-      }
-    } catch (err) {
-      console.warn("OCR fail on image", i, err);
-      if (thumb) thumb.classList.remove("processing");
     }
-    fill.style.width = `${((i + 1) / memberOcrFiles.length) * 100}%`;
+    completed++;
+    txt.textContent = `${completed}/${memberOcrFiles.length} 인식 완료…`;
+    fill.style.width = `${(completed / memberOcrFiles.length) * 100}%`;
+    if (thumb) {
+      thumb.classList.remove("processing");
+      if (text) thumb.classList.add("done");
+    }
   }
 
-  try { await worker.terminate(); } catch (_) {}
+  // 동시 실행 제한
+  const queue = memberOcrFiles.map((_, i) => i);
+  const workers = Array(Math.min(CONCURRENCY, queue.length)).fill(0).map(async () => {
+    while (queue.length) {
+      const i = queue.shift();
+      if (i === undefined) return;
+      await processOne(i);
+    }
+  });
+  await Promise.all(workers);
 
   // dedupe: 문파장 > 부문파장 > 일반(문파원)
   const rolePri = (r) => (r === "문파장" ? 2 : r === "부문파장" ? 1 : 0);

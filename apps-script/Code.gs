@@ -716,18 +716,71 @@ function setupOcrPermissions() {
 }
 
 /**
- * Google Drive 의 OCR 기능을 사용해 이미지에서 텍스트 추출.
- * Tesseract.js 보다 게임 UI / 폰 사진 인식률이 훨씬 좋음.
+ * OCR 디스패처.
+ * 1) VISION_API_KEY 스크립트 속성이 있으면 Google Cloud Vision API 사용 (권장, 인식률 최고).
+ * 2) 없으면 Drive API v2 의 OCR 기능 폴백 (rate limit 있음).
  *
- * 사전 준비:
- *   1) 좌측 사이드바 「서비스」 → + → "Drive API" v2 추가
- *   2) 편집기에서 setupOcrPermissions 함수 1회 실행 → Drive 권한 승인
- *   3) 「배포 관리」 → ✏️ → 새 버전 → 배포
+ * Vision API 설정 (1회만):
+ *   1) console.cloud.google.com 접속 → Apps Script 와 같은 프로젝트 선택
+ *   2) "API 및 서비스 → 라이브러리" → "Cloud Vision API" 사용 설정
+ *   3) "사용자 인증 정보 → 사용자 인증 정보 만들기 → API 키" 생성
+ *   4) 키 제한: "API 제한사항" → "키 제한" → Cloud Vision API 만 허용 (권장)
+ *   5) Apps Script 편집기 → 프로젝트 설정 (⚙️) → 스크립트 속성 → 속성 추가
+ *      이름: VISION_API_KEY  값: AIza... (위에서 받은 키)
+ *   6) 「배포 관리」 → ✏️ → 새 버전 → 배포
+ *
+ *   * 무료 한도: 월 1,000 호출. 초과 시 $1.50 / 1,000건.
  */
 function ocrImage_(body) {
+  const visionKey = PropertiesService.getScriptProperties().getProperty('VISION_API_KEY');
+  if (visionKey) return visionOcr_(body, visionKey);
+  return driveOcr_(body);
+}
+
+function visionOcr_(body, apiKey) {
+  try {
+    const raw = (body.image || '').toString();
+    const b64 = raw.replace(/^data:[^,]+,/, '');
+    if (!b64) return { ok: false, error: '이미지 없음' };
+    const reqBody = {
+      requests: [{
+        image: { content: b64 },
+        features: [{ type: 'TEXT_DETECTION', maxResults: 1 }],
+        imageContext: { languageHints: ['ko', 'en'] },
+      }],
+    };
+    const res = UrlFetchApp.fetch(
+      'https://vision.googleapis.com/v1/images:annotate?key=' + encodeURIComponent(apiKey),
+      {
+        method: 'post',
+        contentType: 'application/json',
+        payload: JSON.stringify(reqBody),
+        muteHttpExceptions: true,
+      }
+    );
+    const code = res.getResponseCode();
+    const raw_resp = res.getContentText();
+    let data;
+    try { data = JSON.parse(raw_resp); } catch (_) { data = {}; }
+    if (code !== 200) {
+      const errMsg = (data.error && data.error.message) || ('HTTP ' + code);
+      return { ok: false, error: 'Vision API: ' + errMsg };
+    }
+    const ann = data.responses && data.responses[0];
+    if (ann && ann.error) {
+      return { ok: false, error: 'Vision API: ' + ann.error.message };
+    }
+    const text = ann && ann.fullTextAnnotation ? ann.fullTextAnnotation.text : '';
+    return { ok: true, text: text, engine: 'vision' };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+}
+
+function driveOcr_(body) {
   try {
     if (typeof Drive === 'undefined' || !Drive.Files) {
-      return { ok: false, error: 'Drive API v2 서비스가 활성화되지 않았습니다. Apps Script 편집기 → 서비스 → Drive API 추가 후 재배포 하세요.' };
+      return { ok: false, error: 'Drive API v2 서비스가 활성화되지 않았고 VISION_API_KEY 도 없습니다. 둘 중 하나를 설정하세요.' };
     }
     const raw = (body.image || '').toString();
     const b64 = raw.replace(/^data:[^,]+,/, '');
@@ -751,7 +804,7 @@ function ocrImage_(body) {
     } finally {
       try { DriveApp.getFileById(file.id).setTrashed(true); } catch (_) {}
     }
-    return { ok: true, text: text };
+    return { ok: true, text: text, engine: 'drive' };
   } catch (err) {
     return { ok: false, error: String(err) };
   }
