@@ -302,8 +302,11 @@ function renderGrid(members, entries, lords) {
       const isLeader = g === ALLIANCE.leader.guild;
       const myCastles = castleMap.get(g) || [];
       const url = `siege.html?guild=${encodeURIComponent(g)}`;
-      const castleBadges = myCastles.length
-        ? `<div class="castle-tags">${myCastles.map((c) => `<span class="castle-lord-badge">🏰 ${escapeHtml(c).replace("성","")}</span>`).join("")}</div>`
+      const tagPills = [];
+      if (isLeader) tagPills.push(`<span class="leader-badge">👑 연합장</span>`);
+      myCastles.forEach((c) => tagPills.push(`<span class="castle-lord-badge">🏰 ${escapeHtml(c).replace("성","")}</span>`));
+      const castleBadges = tagPills.length
+        ? `<div class="castle-tags">${tagPills.join("")}</div>`
         : "";
       // 원형 progress (SVG)
       const circ = 2 * Math.PI * 18;
@@ -324,16 +327,17 @@ function renderGrid(members, entries, lords) {
       </a>`;
     }).join("");
 
-    const famCastleLabel = famCastles.length
-      ? famCastles.map((x) => `<span class="family-castle-badge">🏰 ${escapeHtml(x.castle)}주 (${escapeHtml(x.guild)})</span>`).join(" ")
-      : "";
+    const famPills = [];
+    if (isLeaderFam) famPills.push(`<span class="family-leader-badge">👑 연합장 문파</span>`);
+    famCastles.forEach((x) => famPills.push(`<span class="family-castle-badge">🏰 ${escapeHtml(x.castle)}주 (${escapeHtml(x.guild)})</span>`));
+    const famBadgeLine = famPills.length ? `<div class="family-castle-line">${famPills.join(" ")}</div>` : "";
 
     return `
       <div class="family-card ${isLeaderFam ? "is-leader" : ""} ${famCastles.length ? "has-castle" : ""}" data-family="${escapeHtml(fam.name)}">
         <div class="family-header">
           <div class="family-title">
             <span class="family-name">${escapeHtml(fam.name)}</span>
-            ${famCastleLabel ? `<div class="family-castle-line">${famCastleLabel}</div>` : ""}
+            ${famBadgeLine}
           </div>
           <span class="family-stats">
             <span class="family-pct">${famPct}%</span>
