@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#003399" />
   <title>공성 가이드 · EU연합 통합시스템</title>
-  <meta name="description" content="바람의나라 클래식 옥좌공성 룰 / 단계별 점수 / 직업별 역할 / 체마 점수 계산기">
+  <meta name="description" content="바람의나라 클래식 옥좌공성 메커니즘 / 전략 카드 / 직업별 역할 / 체마 점수 계산기">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="styles.css?v=33" />
-  <link rel="stylesheet" href="guide.css?v=33" />
+  <link rel="stylesheet" href="styles.css?v=34" />
+  <link rel="stylesheet" href="guide.css?v=34" />
   <link rel="preconnect" href="https://script.google.com" crossorigin>
 </head>
 <body class="guide-body">
@@ -47,7 +47,8 @@
 
     <nav class="guide-toc">
       <a href="#rules">⚔️ 공성 룰</a>
-      <a href="#missions">🎯 옥좌공성 흐름</a>
+      <a href="#throne">👑 옥좌공성 메커니즘</a>
+      <a href="#strategy">🎯 전략 카드</a>
       <a href="#classes">⚔️ 직업별 역할</a>
       <a href="#calc">🧮 체마 점수 계산기</a>
       <a href="#etiquette">🤝 연합 에티켓</a>
@@ -71,12 +72,63 @@
       </ul>
     </section>
 
-    <section class="card" id="missions">
-      <h2>🎯 옥좌공성 흐름 (참고용)</h2>
-      <p class="hint">바람의나라 클래식의 <strong>옥좌공성</strong> 진행 단계 시각화. 본인 점수가 어느 단계에서 누적됐는지 흐름을 이해하면 전략에 도움.</p>
-      <div class="mission-bar" aria-hidden="true" id="missionBar"></div>
-      <div class="mission-list" id="missionList"></div>
-      <p class="hint">※ 각 단계 점수 분포는 일반 참고용. 정확한 룰은 운영진 공지 / <a href="https://baram.nexon.com/GameGuide/View/38" target="_blank" rel="noopener">넥슨 공식 가이드</a> 확인.</p>
+    <section class="card" id="throne">
+      <h2>👑 옥좌공성 메커니즘 (옛날방식)</h2>
+      <p class="hint">바람의나라 클래식 <strong>옥좌공성</strong> 은 특명/봉인석 같은 단계가 <strong>없습니다</strong>. <strong>옥좌 점유자 = 성주</strong> 라는 단순하지만 잔혹한 룰.</p>
+
+      <div class="throne-timeline" aria-hidden="true">
+        <div class="tl-track">
+          <div class="tl-seg tl-seg-locked"><span>0:00</span><small>공성 시작</small></div>
+          <div class="tl-seg tl-seg-fixed"><span>30분 동안</span><small>종료 불가 구간 — 옥좌 점유/방어 누적</small></div>
+          <div class="tl-marker">⏱️ 30:00<small>최소 종료 시각</small></div>
+          <div class="tl-seg tl-seg-random"><span>랜덤 종료 구간</span><small>30분 이후 언제든 자동 종료</small></div>
+          <div class="tl-marker tl-end">🏆<small>종료 시점 옥좌 점유 문주 → 성주</small></div>
+        </div>
+      </div>
+
+      <ul class="rule-list">
+        <li><strong>옥좌 점유 = 문주만 가능</strong>. 부방장/일반 문원은 옥좌에 앉아도 성주 결정에 영향 없음</li>
+        <li><strong>종료 시점은 랜덤</strong>. 정확히 30분에 끝나지 않음 — 30분 이후 시스템이 무작위 시점에 자동 종료</li>
+        <li>종료 신호가 떠야 비로소 그 순간 옥좌 점유자가 성주로 확정</li>
+        <li>종료 시점 옥좌가 <strong>비어있으면 미점령</strong> (전 주 성주 유지 또는 공석)</li>
+        <li>문주가 사망하면 부활 시간 동안 옥좌 점유 불가 — <strong>치명적 약점</strong></li>
+      </ul>
+    </section>
+
+    <section class="card" id="strategy">
+      <h2>🎯 전략 카드</h2>
+      <div class="class-grid">
+        <div class="class-card strategy-card">
+          <div class="class-head"><span class="class-icon">🏰</span><span class="class-name">옥좌 사수</span></div>
+          <div class="class-role">기본 전략 · 문주 직접 점유</div>
+          <p>문주가 30분 이전부터 옥좌에 앉아 자리 잡기. 종료가 언제 뜰지 모르므로 30분 이후 매 순간 비울 수 없음. <strong>문주 사망 시 즉시 옥좌 비어짐</strong> → 다른 문파에게 점유 기회 헌납.</p>
+        </div>
+        <div class="class-card strategy-card">
+          <div class="class-head"><span class="class-icon">🛡️</span><span class="class-name">문주 보호</span></div>
+          <div class="class-role">생존이 곧 승리</div>
+          <p>부방장/딜러진이 문주 주변에 진을 쳐 적 진입 차단. 도사는 회복/버프 풀가동. 문주가 살아남는 한 옥좌 점유 지속 → 종료 시점 일치 시 성주 확보.</p>
+        </div>
+        <div class="class-card strategy-card">
+          <div class="class-head"><span class="class-icon">🚪</span><span class="class-name">쪽문공성</span></div>
+          <div class="class-role">정면 돌파 회피</div>
+          <p>적 본진이 정문에 몰려 있을 때 쪽문/우회로로 침투해 옥좌 기습. 정공법이 막힐 때 핵심 카드. 도적의 은신/기동성이 결정적.</p>
+        </div>
+        <div class="class-card strategy-card">
+          <div class="class-head"><span class="class-icon">⚔️</span><span class="class-name">문주 견제</span></div>
+          <div class="class-role">적 옥좌 점유자 끌어내기</div>
+          <p>점유 중인 적 문주를 집중 공격해 처치 → 부활 시간 동안 옥좌 공백 발생. 그 틈에 본인 문주가 진입. 주술사 광역 + 도적 즉살 콤보.</p>
+        </div>
+        <div class="class-card strategy-card">
+          <div class="class-head"><span class="class-icon">⏱️</span><span class="class-name">시간 계산</span></div>
+          <div class="class-role">30분 직후 집중 운영</div>
+          <p>0~30분: 진영 구축 + 옥좌 선점. 30분 직후: 매 순간 종료 가능하므로 옥좌에서 한 칸도 떨어지지 않기. 종료 신호 뜰 때 누가 앉아있냐가 전부.</p>
+        </div>
+        <div class="class-card strategy-card">
+          <div class="class-head"><span class="class-icon">🎭</span><span class="class-name">기만 전술</span></div>
+          <div class="class-role">정보전 / 페이크</div>
+          <p>일부러 옥좌 비우고 적을 끌어들인 뒤 한꺼번에 처치. 또는 거짓 후퇴로 적 진영 분산 유도. 사전 디스코드 합의 + 신호 정해두기.</p>
+        </div>
+      </div>
     </section>
 
     <section class="card" id="classes">
@@ -84,23 +136,23 @@
       <div class="class-grid">
         <div class="class-card">
           <div class="class-head"><span class="class-icon">🗡️</span><span class="class-name">전사</span></div>
-          <div class="class-role">탱커 / 격수</div>
-          <p>높은 체력으로 성문/봉인석 등 핵심 거점 사수. 격수 빌드는 단기흑수/혈투에서 활약.</p>
+          <div class="class-role">옥좌 수비대 / 문주 방패</div>
+          <p>높은 체력으로 옥좌 주변 진영 사수 + 문주 호위 일순위. 적 문주가 옥좌 진입할 때 바디블록.</p>
         </div>
         <div class="class-card">
           <div class="class-head"><span class="class-icon">🥷</span><span class="class-name">도적</span></div>
-          <div class="class-role">올라운더 격수</div>
-          <p>은신/기동성으로 후위 침투 + 신수 단독 처치 가능. 솔플 점수 확보에 유리.</p>
+          <div class="class-role">쪽문 침투 / 적 문주 즉살</div>
+          <p>은신/기동성으로 쪽문공성 핵심. 옥좌 점유 중인 적 문주 기습 처치 → 부활 시간 동안 옥좌 공백 강제.</p>
         </div>
         <div class="class-card">
           <div class="class-head"><span class="class-icon">🔥</span><span class="class-name">주술사</span></div>
-          <div class="class-role">딜 / 솔플 제왕</div>
-          <p>마력 기반 광역 딜. 봉인석/신수수호령 처리에 결정적. 가중치 점수 1위 다수.</p>
+          <div class="class-role">광역 견제 / 적 문주 노출</div>
+          <p>광역 마법으로 옥좌 주변 적 진영 분산. 적 문주를 호위에서 떼어내 도적/전사가 마무리할 수 있게 셋업.</p>
         </div>
         <div class="class-card">
           <div class="class-head"><span class="class-icon">🌿</span><span class="class-name">도사</span></div>
-          <div class="class-role">지원 / 파티 필수</div>
-          <p>회복/버프로 파티 생존 보장. 본인 점수는 낮을 수 있으나 파티 전체 점수 견인.</p>
+          <div class="class-role">문주 생존 보장</div>
+          <p>문주에게 회복/버프 풀가동 — 문주가 죽지 않는 것 자체가 옥좌 점유 지속이고 곧 승리. 우리 문파의 옥좌공성 핵심.</p>
         </div>
       </div>
     </section>
@@ -146,6 +198,22 @@
     <section class="card" id="faq">
       <h2>❓ 자주 묻는 질문</h2>
       <details>
+        <summary>옥좌공성에서 점수가 왜 중요한가요? 결국 옥좌 점유자가 성주잖아요?</summary>
+        <p>맞습니다. <strong>성주는 옥좌 점유 문주가 결정</strong> 하고, 등록 점수와 무관합니다. 점수 인증은 <strong>연합 내 활동 기록</strong> 용 — 누가 꾸준히 참전했고 누가 무임승차했는지 추적해 보상/제재 근거로 사용. 명예의 전당도 점수 기준 활동도 평가입니다.</p>
+      </details>
+      <details>
+        <summary>30분 후 종료는 정확히 언제 떠요?</summary>
+        <p>예측 불가입니다. 30분 직후 ~ 몇 분/십몇 분 사이 무작위. 30분 이후로는 매 초 옥좌가 비면 즉시 성주 빼앗길 수 있습니다.</p>
+      </details>
+      <details>
+        <summary>문주가 죽으면 어떻게 되나요?</summary>
+        <p>부활 시간 동안 옥좌 점유 불가. 즉시 다른 문파가 옥좌 점유 가능해집니다. 문주 보호는 옥좌공성의 가장 결정적 변수.</p>
+      </details>
+      <details>
+        <summary>쪽문공성이 뭔가요?</summary>
+        <p>정문이 적 본진에 막힌 상황에서 측면/뒷문(쪽문)으로 우회 침투. 적의 시선을 분산시키고 옥좌 기습이 핵심. 도적의 은신과 결합하면 매우 강력.</p>
+      </details>
+      <details>
         <summary>점수가 잘못 등록됐어요</summary>
         <p>같은 닉네임으로 같은 날 다시 신청하면 자동으로 "갱신" 처리됩니다. siege.html 에서 <strong>⟳ 갱신하기</strong> 버튼 사용.</p>
       </details>
@@ -178,7 +246,7 @@
     </div>
   </footer>
 
-  <script src="shared.js?v=33" defer></script>
-  <script src="guide.js?v=33" defer></script>
+  <script src="shared.js?v=34" defer></script>
+  <script src="guide.js?v=34" defer></script>
 </body>
 </html>

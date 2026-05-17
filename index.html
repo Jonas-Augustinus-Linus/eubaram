@@ -11,8 +11,8 @@
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon.svg">
   <link rel="preconnect" href="https://script.google.com" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=33" />
-  <link rel="stylesheet" href="landing.css?v=33" />
+  <link rel="stylesheet" href="styles.css?v=34" />
+  <link rel="stylesheet" href="landing.css?v=34" />
 </head>
 <body class="landing-body">
   <header class="landing-hero">
@@ -83,7 +83,12 @@
       <div class="hof-period-tabs" role="tablist" aria-label="기간">
         <button type="button" class="hof-period-tab active" data-period="week" role="tab">이번 주</button>
         <button type="button" class="hof-period-tab" data-period="month" role="tab">최근 28일</button>
-        <button type="button" class="hof-period-tab" data-period="season" role="tab">시즌</button>
+        <button type="button" class="hof-period-tab" data-period="season" role="tab">현재 시즌</button>
+        <button type="button" class="hof-period-tab" data-period="archive" role="tab">📜 과거 시즌</button>
+      </div>
+      <div class="hof-archive-select" id="hofArchiveSelect" hidden>
+        <label for="hofSeasonPick" class="hof-arch-label">시즌 선택:</label>
+        <select id="hofSeasonPick" aria-label="박제 시즌"></select>
       </div>
       <div class="hof-range" id="hofRange"></div>
       <div class="hof-body" id="hofBody">
@@ -121,7 +126,7 @@
     </div>
   </footer>
 
-  <script src="shared.js?v=33" defer></script>
-  <script src="landing.js?v=33" defer></script>
+  <script src="shared.js?v=34" defer></script>
+  <script src="landing.js?v=34" defer></script>
 </body>
 </html>

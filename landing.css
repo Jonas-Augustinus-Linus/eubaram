@@ -217,6 +217,31 @@
   color: #0a0d12;
 }
 
+.hof-archive-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.hof-arch-label {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.hof-archive-select select {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
 .hof-range {
   font-size: 11.5px;
   color: var(--muted);

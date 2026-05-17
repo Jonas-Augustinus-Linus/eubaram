@@ -93,6 +93,26 @@ async function apiHallOfFame(scope, period) {
   } catch { return null; }
 }
 
+async function apiSeasonsList() {
+  try {
+    const res = await fetch(`${getEndpoint()}?action=seasonsList`);
+    if (!res.ok) return [];
+    const d = await res.json();
+    if (!d.ok) return [];
+    return d.seasons || [];
+  } catch { return []; }
+}
+
+async function apiSeasonArchive(season, scope) {
+  try {
+    const res = await fetch(`${getEndpoint()}?action=seasonArchive&season=${encodeURIComponent(season)}&scope=${encodeURIComponent(scope)}`);
+    if (!res.ok) return null;
+    const d = await res.json();
+    if (!d.ok) return null;
+    return d;
+  } catch { return null; }
+}
+
 async function apiCastleHistory(days) {
   try {
     const res = await fetch(`${getEndpoint()}?action=castleLordHistory&days=${days || 90}`);
@@ -278,8 +298,64 @@ function renderEliteMini(v) {
   return `<span class="muted">-</span>`;
 }
 
+let hofArchiveSeason = "";
+
+function renderArchive(data) {
+  const body = $("#hofBody");
+  const rangeEl = $("#hofRange");
+  if (!body) return;
+  if (rangeEl) rangeEl.textContent = data && data.season ? `📜 ${data.season} 박제 결과` : "";
+  if (!data || !data.rows || !data.rows.length) {
+    body.innerHTML = `<div class="hint">박제된 결과가 없습니다.</div>`;
+    return;
+  }
+  const medal = (i) => i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`;
+  const scopeLabel = data.scope === "personal" ? "닉네임" : data.scope === "guild" ? "문파" : "계";
+  body.innerHTML = `
+    <table class="hof-table">
+      <thead><tr><th>순위</th><th>${scopeLabel}</th><th>소속/-</th><th class="num">가중치/합산</th><th class="num">인원</th></tr></thead>
+      <tbody>${data.rows.map((r, i) => `
+        <tr class="${i === 0 ? "rank-1" : i === 1 ? "rank-2" : i === 2 ? "rank-3" : ""}">
+          <td class="rank">${medal(r.rank - 1)}</td>
+          <td><strong>${escapeHtml(r.name)}</strong></td>
+          <td class="muted">${escapeHtml(r.guildOrFamily || "-")}</td>
+          <td class="num accent">${r.weightedScore.toFixed(2)}</td>
+          <td class="num muted">${r.members || "-"}</td>
+        </tr>`).join("")}</tbody>
+    </table>`;
+}
+
+async function loadArchive() {
+  if (!hofArchiveSeason) {
+    $("#hofBody").innerHTML = `<div class="hint">시즌을 선택해 주세요.</div>`;
+    return;
+  }
+  $("#hofBody").innerHTML = `<div class="hint">로딩 중…</div>`;
+  const data = await apiSeasonArchive(hofArchiveSeason, hofScope);
+  if (data) renderArchive(data);
+  else $("#hofBody").innerHTML = `<div class="hint error">불러오기 실패</div>`;
+}
+
+async function populateSeasonsList() {
+  const sel = $("#hofSeasonPick");
+  if (!sel) return;
+  const seasons = await apiSeasonsList();
+  if (!seasons.length) {
+    sel.innerHTML = `<option value="">박제된 시즌 없음</option>`;
+    hofArchiveSeason = "";
+    return;
+  }
+  sel.innerHTML = seasons.map((s, i) => `<option value="${escapeHtml(s)}"${i === 0 ? " selected" : ""}>${escapeHtml(s)}</option>`).join("");
+  hofArchiveSeason = seasons[0];
+}
+
 async function loadHallOfFame() {
-  // 캐시 즉시 표시
+  if (hofPeriod === "archive") {
+    $("#hofArchiveSelect").hidden = false;
+    if (!hofArchiveSeason) await populateSeasonsList();
+    return loadArchive();
+  }
+  $("#hofArchiveSelect").hidden = true;
   const cached = readCache(`hof_${hofScope}_${hofPeriod}`);
   if (cached) renderHallOfFame(cached);
   else $("#hofBody").innerHTML = `<div class="hint">로딩 중…</div>`;
@@ -304,6 +380,13 @@ function setupHallOfFameTabs() {
       loadHallOfFame();
     });
   });
+  const sel = $("#hofSeasonPick");
+  if (sel) {
+    sel.addEventListener("change", () => {
+      hofArchiveSeason = sel.value;
+      loadArchive();
+    });
+  }
 }
 
 function renderGuidelines(text) {

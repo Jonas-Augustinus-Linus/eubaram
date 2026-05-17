@@ -81,63 +81,115 @@
 .rule-list li { margin-bottom: 4px; }
 .rule-list li strong { color: var(--accent); }
 
-/* ===== 옥좌공성 단계 바 ===== */
+/* ===== 옥좌공성 타임라인 ===== */
 
-.mission-bar {
-  display: flex;
-  height: 36px;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  margin: 14px 0;
-}
-
-.mission-seg {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #1a0d00;
-  font-weight: 900;
-  font-size: 11.5px;
-  text-shadow: 0 1px 1px rgba(255,255,255,0.4);
-  transition: filter 0.15s, transform 0.15s;
-}
-
-.mission-seg:hover { filter: brightness(1.1); transform: scaleY(1.1); }
-
-.mission-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.mission-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+.throne-timeline {
+  margin: 18px 0 14px;
+  padding: 14px;
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: 10px;
+  overflow-x: auto;
 }
 
-.m-tag {
-  font-size: 11px;
-  background: var(--panel-3);
-  color: var(--muted);
-  padding: 2px 8px;
-  border-radius: 999px;
+.tl-track {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-width: 560px;
+}
+
+.tl-seg {
+  flex: 1;
+  padding: 12px 10px;
+  text-align: center;
+  font-size: 12px;
   font-weight: 700;
+  color: var(--text);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 6px;
+  margin: 0 2px;
 }
 
-.m-name { flex: 1; }
+.tl-seg span { font-size: 13px; font-weight: 800; }
+.tl-seg small { font-size: 10.5px; color: var(--muted); font-weight: 500; }
 
-.m-pts {
+.tl-seg-locked {
+  background: linear-gradient(135deg, rgba(110, 118, 129, 0.18), rgba(110, 118, 129, 0.08));
+  color: var(--muted);
+}
+
+.tl-seg-fixed {
+  background: linear-gradient(135deg, rgba(0, 51, 153, 0.30), rgba(0, 51, 153, 0.15));
+  flex: 2;
+}
+
+.tl-seg-random {
+  background: linear-gradient(90deg,
+    rgba(255, 204, 0, 0.30) 0%,
+    rgba(255, 204, 0, 0.15) 50%,
+    rgba(255, 204, 0, 0.05) 100%);
+  flex: 2.5;
+  position: relative;
+  overflow: hidden;
+}
+
+.tl-seg-random::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 6px,
+    rgba(255, 204, 0, 0.12) 6px 8px
+  );
+  pointer-events: none;
+}
+
+.tl-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-weight: 700;
+  min-width: 70px;
+}
+
+.tl-marker small {
+  font-size: 10px;
+  text-align: center;
+  line-height: 1.2;
+  max-width: 90px;
+}
+
+.tl-end {
   color: #FFCC00;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 8px rgba(255, 204, 0, 0.5);
+}
+
+/* ===== 전략 카드 ===== */
+
+.strategy-card {
+  position: relative;
+  transition: transform 0.12s, border-color 0.12s;
+}
+
+.strategy-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 204, 0, 0.5);
+}
+
+.strategy-card .class-role {
+  color: #FFCC00;
+  font-weight: 700;
 }
 
 /* ===== 직업 카드 ===== */
@@ -283,6 +335,7 @@
   .calc-result-value { font-size: 20px; }
   .guide-toc { font-size: 12px; padding: 8px; }
   .guide-toc a { padding: 4px 9px; font-size: 11.5px; }
-  .mission-bar { height: 32px; }
-  .mission-seg { font-size: 10.5px; }
+  .throne-timeline { padding: 10px; }
+  .tl-seg { font-size: 11px; padding: 8px 6px; }
+  .tl-marker { font-size: 10.5px; min-width: 56px; }
 }
