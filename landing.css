@@ -682,6 +682,198 @@
 .ch-date { color: var(--muted); font-size: 11px; min-width: 38px; }
 .ch-guild { font-weight: 600; text-align: right; }
 
+/* ===== 모집중 배지 / 정보 버튼 ===== */
+
+.recruiting-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  background: linear-gradient(135deg, #69d586, #2ea043);
+  color: #062313;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+  box-shadow: 0 1px 4px rgba(46, 160, 67, 0.45);
+  white-space: nowrap;
+  animation: recruit-pulse 2s ease-in-out infinite;
+}
+
+@keyframes recruit-pulse {
+  0%, 100% { box-shadow: 0 1px 4px rgba(46, 160, 67, 0.45); }
+  50%      { box-shadow: 0 1px 10px rgba(46, 160, 67, 0.75); }
+}
+
+.guild-card.is-recruiting {
+  border-color: rgba(46, 160, 67, 0.55);
+  background: linear-gradient(180deg, rgba(46, 160, 67, 0.1), rgba(0, 51, 153, 0.05));
+}
+
+.guild-card { position: relative; }
+
+.guild-info-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  z-index: 2;
+  opacity: 0.6;
+  transition: opacity 0.12s, background 0.12s, transform 0.12s;
+}
+
+.guild-info-btn:hover {
+  opacity: 1;
+  background: var(--accent);
+  color: #1a0d00;
+  transform: scale(1.1);
+}
+
+/* ===== 문파 정보 모달 ===== */
+
+.guild-info-dialog {
+  max-width: 480px;
+  width: 92%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+}
+
+.guild-info-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.gid-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.gid-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--accent);
+}
+
+.gid-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: background 0.12s;
+}
+
+.gid-close:hover { background: var(--panel-2); color: var(--text); }
+
+.gid-body { padding: 14px 18px 18px; }
+
+.gid-status {
+  font-size: 13px;
+  margin-bottom: 12px;
+  text-align: center;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.gid-status.open {
+  background: linear-gradient(135deg, rgba(46, 160, 67, 0.18), rgba(105, 213, 134, 0.10));
+  color: #69d586;
+  border: 1px solid rgba(46, 160, 67, 0.45);
+}
+
+.gid-status.closed {
+  background: var(--panel-2);
+  color: var(--muted);
+  font-style: italic;
+}
+
+.gid-section { margin-bottom: 14px; }
+
+.gid-label {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.gid-content {
+  font-size: 13.5px;
+  color: var(--text);
+  line-height: 1.55;
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  word-break: break-word;
+}
+
+.gid-discord-btn {
+  display: block;
+  text-align: center;
+  background: #5865F2;
+  color: #fff;
+  text-decoration: none;
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  transition: filter 0.12s;
+}
+
+.gid-discord-btn:hover { filter: brightness(1.12); }
+
+.gid-empty {
+  text-align: center;
+  padding: 14px;
+  background: var(--panel-2);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.gid-empty p { margin: 4px 0; font-size: 13px; }
+
+.gid-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.gid-actions a.primary {
+  flex: 1;
+  text-align: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #1c1300;
+  text-decoration: none;
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.gid-updated {
+  font-size: 10.5px;
+  color: var(--muted);
+  text-align: right;
+  margin-top: 10px;
+}
+
 .lord-guild { display: inline-block; }
 .lord-guild.in-alliance {
   color: var(--accent);

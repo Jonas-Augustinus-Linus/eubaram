@@ -9,8 +9,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="styles.css?v=36" />
-  <link rel="stylesheet" href="admin.css?v=36" />
+  <link rel="stylesheet" href="styles.css?v=37" />
+  <link rel="stylesheet" href="admin.css?v=37" />
   <link rel="preconnect" href="https://script.google.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 </head>
@@ -258,6 +258,87 @@
       <div class="account-list" id="accountList"></div>
     </section>
 
+    <!-- 문파 모집 정보 -->
+    <section class="card">
+      <h2>📋 문파 모집/연락처 관리</h2>
+      <p class="hint">랜딩 페이지 문파 카드의 ℹ️ 클릭 시 표시됩니다. 본인 권한 범위의 문파만 편집 가능.</p>
+      <div class="guild-info-edit">
+        <div class="gi-row">
+          <label class="gi-label">대상 문파</label>
+          <select id="giGuildPick" class="gi-input"></select>
+        </div>
+        <div class="gi-row">
+          <label class="gi-label">모집 상태</label>
+          <div class="gi-toggle">
+            <label><input type="radio" name="giRecruiting" value="1"> ✨ 모집중</label>
+            <label><input type="radio" name="giRecruiting" value="0" checked> 마감</label>
+          </div>
+        </div>
+        <div class="gi-row">
+          <label class="gi-label" for="giDescription">문파 소개</label>
+          <textarea id="giDescription" class="gi-input" rows="3" maxlength="1000" placeholder="예) EU연합 본진 문파. 공성 활동 중심..."></textarea>
+        </div>
+        <div class="gi-row">
+          <label class="gi-label" for="giRequirements">가입 조건</label>
+          <textarea id="giRequirements" class="gi-input" rows="3" maxlength="500" placeholder="예) 4차 검황 이상, 공성 의무 참여, 디스코드 가입..."></textarea>
+        </div>
+        <div class="gi-row">
+          <label class="gi-label" for="giContact">연락처</label>
+          <input type="text" id="giContact" class="gi-input" maxlength="200" placeholder="예) 디스코드 vindobona / 카카오톡 ID xxx" />
+        </div>
+        <div class="gi-row">
+          <label class="gi-label" for="giDiscordInvite">디스코드 초대 링크</label>
+          <input type="url" id="giDiscordInvite" class="gi-input" maxlength="200" placeholder="https://discord.gg/xxxxxxx" pattern="https://(discord\.gg|discord\.com/invite)/.*" />
+        </div>
+        <div class="actions" style="display:flex; gap:8px; margin-top:8px;">
+          <button type="button" class="ghost" id="giLoadBtn">기존 불러오기</button>
+          <button type="button" class="primary" id="giSaveBtn">저장</button>
+        </div>
+        <p class="hint" id="giMsg"></p>
+      </div>
+    </section>
+
+    <!-- 공성 즉석 매칭 -->
+    <section class="card" id="siegeHelpSection">
+      <h2>📢 공성 즉석 보충 요청</h2>
+      <p class="hint">디스코드 채널에 즉시 알림 게시. <strong>DISCORD_WEBHOOK_URL 설정된 경우만 작동</strong>.</p>
+      <div class="siege-help-form">
+        <div class="gi-row">
+          <label class="gi-label">문파</label>
+          <select id="shGuildPick" class="gi-input"></select>
+        </div>
+        <div class="gi-row">
+          <label class="gi-label">필요 인원/직업</label>
+          <div class="sh-quick">
+            <button type="button" data-role="전사">🗡️ 전사</button>
+            <button type="button" data-role="도적">🥷 도적</button>
+            <button type="button" data-role="주술사">🔥 주술사</button>
+            <button type="button" data-role="도사">🌿 도사</button>
+            <button type="button" data-role="딜러">⚔️ 딜러</button>
+            <button type="button" data-role="체력형">🛡️ 체력형</button>
+          </div>
+          <input type="text" id="shRole" class="gi-input" maxlength="32" placeholder="또는 직접 입력 (예: 주술사 광역딜)" />
+        </div>
+        <div class="gi-row">
+          <label class="gi-label" for="shCount">인원</label>
+          <input type="number" id="shCount" class="gi-input" min="1" max="20" value="1" />
+        </div>
+        <div class="gi-row">
+          <label class="gi-label" for="shNote">비고 (선택)</label>
+          <input type="text" id="shNote" class="gi-input" maxlength="200" placeholder="예) 오늘 22:00까지, 디코 음성방 들어와주세요" />
+        </div>
+        <div class="gi-row">
+          <label class="gi-label gi-checkbox">
+            <input type="checkbox" id="shUrgent"> 🚨 긴급 (@everyone 멘션)
+          </label>
+        </div>
+        <div class="actions" style="display:flex; gap:8px; margin-top:8px;">
+          <button type="button" class="primary" id="shSendBtn">📢 보내기</button>
+        </div>
+        <p class="hint" id="shMsg"></p>
+      </div>
+    </section>
+
     <!-- 연합 지침 편집 -->
     <section class="card">
       <h2>📜 연합 지침사항 편집</h2>
@@ -291,7 +372,7 @@
     </div>
   </footer>
 
-  <script src="shared.js?v=36" defer></script>
-  <script src="admin.js?v=36" defer></script>
+  <script src="shared.js?v=37" defer></script>
+  <script src="admin.js?v=37" defer></script>
 </body>
 </html>

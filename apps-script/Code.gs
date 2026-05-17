@@ -476,6 +476,87 @@ function setGuidelines_(body) {
   return { ok: true };
 }
 
+// ====================================================
+// 문파 모집/연락처 정보 (PropertiesService 'GUILDS_INFO' JSON)
+// 형식: { "쿠데타": { recruiting, requirements, contact, discordInvite, description, updatedAt }, ... }
+// ====================================================
+
+function getGuildsInfo_() {
+  const raw = PropertiesService.getScriptProperties().getProperty('GUILDS_INFO');
+  if (!raw) return {};
+  try { return JSON.parse(raw) || {}; } catch (_) { return {}; }
+}
+
+function setGuildInfo_(body) {
+  const a = authenticate_(body);
+  if (!a.ok) return { ok: false, error: 'unauthorized' };
+  const guild = (body.guild || '').toString().trim();
+  if (!guild) return { ok: false, error: '문파명 누락' };
+  if (guild.length > 32) return { ok: false, error: '문파명이 너무 깁니다' };
+
+  // 권한 체크: super-admin 전체 가능. 계 관리자는 자기 계 내 문파만.
+  const allowedGuilds = guildsForScope_(a.scope);
+  if (allowedGuilds !== null && allowedGuilds.indexOf(guild) < 0) {
+    return { ok: false, error: '권한 범위 외 문파' };
+  }
+
+  const all = getGuildsInfo_();
+  // 입력 sanitize + 길이 제한
+  const info = {
+    recruiting: !!body.recruiting,
+    requirements: (body.requirements || '').toString().slice(0, 500),
+    contact: (body.contact || '').toString().slice(0, 200),
+    discordInvite: (body.discordInvite || '').toString().slice(0, 200),
+    description: (body.description || '').toString().slice(0, 1000),
+    updatedAt: Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm'),
+    updatedBy: a.username || '',
+  };
+  // 디스코드 초대 링크는 https://discord.gg/ 또는 https://discord.com/invite/ 만 허용
+  if (info.discordInvite && !/^https:\/\/(discord\.gg|discord\.com\/invite)\//.test(info.discordInvite)) {
+    return { ok: false, error: '디스코드 초대 링크 형식 오류 (discord.gg/...)' };
+  }
+  all[guild] = info;
+  PropertiesService.getScriptProperties().setProperty('GUILDS_INFO', JSON.stringify(all));
+  invalidateBootstrap_();
+  return { ok: true };
+}
+
+// ====================================================
+// 공성 즉석 매칭 — 디스코드 webhook 핑
+// 인증된 관리자만 호출 가능. 채널 자동 알림.
+// ====================================================
+
+function notifySiegeNeedHelp_(body) {
+  const a = authenticate_(body);
+  if (!a.ok) return { ok: false, error: 'unauthorized' };
+  if (!getDiscordWebhook_()) return { ok: false, error: 'Discord webhook 미설정' };
+
+  const guild = (body.guild || '').toString().trim().slice(0, 32);
+  const roleNeeded = (body.role || '').toString().trim().slice(0, 32);
+  const count = Math.max(1, Math.min(20, parseInt(body.count || '1', 10) || 1));
+  const note = (body.note || '').toString().slice(0, 200);
+  const urgent = !!body.urgent;
+
+  if (!guild) return { ok: false, error: '문파 누락' };
+  if (!roleNeeded) return { ok: false, error: '필요 인원/직업 누락' };
+
+  // 권한: 자기 계 관리자가 다른 계 문파로 알림 보내는 거 차단
+  const allowedGuilds = guildsForScope_(a.scope);
+  if (allowedGuilds !== null && allowedGuilds.indexOf(guild) < 0) {
+    return { ok: false, error: '권한 범위 외 문파' };
+  }
+
+  const embed = {
+    title: (urgent ? '🚨 ' : '📢 ') + guild + ' · 공성 보충 필요',
+    description: `**${roleNeeded}** ${count}명 모집` + (note ? '\n\n' + note : ''),
+    color: urgent ? 0xff5147 : 0xFFCC00,
+    timestamp: new Date().toISOString(),
+    footer: { text: 'EU연합 통합시스템 · 보충 요청 by ' + (a.username || '?') },
+  };
+  const sent = notifyDiscord_(urgent ? '@everyone 공성 보충 긴급!' : null, [embed]);
+  return { ok: sent, sent };
+}
+
 function getSheet_() {
   const ss = SPREADSHEET_ID
     ? SpreadsheetApp.openById(SPREADSHEET_ID)
@@ -532,6 +613,9 @@ function doGet(e) {
     if (action === 'scoreCalc') {
       return jsonOut_(proxyBarambookScore_(e.parameter.job_code || '', e.parameter.hp || '0', e.parameter.mp || '0'));
     }
+    if (action === 'guildsInfo') {
+      return jsonOut_({ ok: true, guilds: getGuildsInfo_() });
+    }
     return jsonOut_({ ok: false, error: 'unknown action' });
   } catch (err) {
     return jsonOut_({ ok: false, error: safeErr_(err) });
@@ -560,6 +644,7 @@ function getBootstrap_() {
       members: listMembers_(),
       lords: getCastleLords_(),
       guidelines: getGuidelines_(),
+      guilds: getGuildsInfo_(),
       serverTime: Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss'),
     };
     try { cache.put(BOOTSTRAP_CACHE_KEY, JSON.stringify(out), BOOTSTRAP_CACHE_SEC); } catch (_) {}
@@ -608,6 +693,8 @@ function doPost(e) {
     if (action === 'admin:accounts:remove') return jsonOut_(removeAccount_(body));
     if (action === 'castleLord:set') return jsonOut_(setCastleLord_(body));
     if (action === 'guidelines:set') return jsonOut_(setGuidelines_(body));
+    if (action === 'guildInfo:set') return jsonOut_(setGuildInfo_(body));
+    if (action === 'siege:needHelp') return jsonOut_(notifySiegeNeedHelp_(body));
     return jsonOut_({ ok: false, error: 'unknown action' });
   } catch (err) {
     return jsonOut_({ ok: false, error: safeErr_(err) });

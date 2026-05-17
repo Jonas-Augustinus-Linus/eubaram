@@ -183,8 +183,105 @@ async function loadAll() {
     loadCastleLords(),
     loadGuidelines(),
     loadAccountList(),
+    loadGuildsInfoAdmin(),
   ]);
   populateGuildDatalist();
+  populateGuildEditorPickers();
+}
+
+// ---- 문파 모집 정보 관리 ----
+
+let _cachedGuildsInfoAdmin = {};
+
+async function loadGuildsInfoAdmin() {
+  try {
+    const r = await apiGet("guildsInfo");
+    if (r && r.ok) _cachedGuildsInfoAdmin = r.guilds || {};
+  } catch (err) { console.warn("문파 정보 로드 실패:", err); }
+}
+
+// 권한 범위(scope) 내 문파만 picker 에 채움
+function populateGuildEditorPickers() {
+  const giSel = document.querySelector("#giGuildPick");
+  const shSel = document.querySelector("#shGuildPick");
+  if (!giSel && !shSel) return;
+  const scope = getScope();
+  const guilds = guildsInScope(scope);
+  const opts = `<option value="">문파 선택…</option>` +
+    guilds.map((g) => `<option value="${escapeHtml(g)}">${escapeHtml(g)}${_cachedGuildsInfoAdmin[g] && _cachedGuildsInfoAdmin[g].recruiting ? " ✨" : ""}</option>`).join("");
+  if (giSel) giSel.innerHTML = opts;
+  if (shSel) shSel.innerHTML = opts;
+}
+
+function loadGuildInfoIntoForm() {
+  const guild = document.querySelector("#giGuildPick").value;
+  if (!guild) return;
+  const info = _cachedGuildsInfoAdmin[guild] || {};
+  document.querySelector("#giDescription").value = info.description || "";
+  document.querySelector("#giRequirements").value = info.requirements || "";
+  document.querySelector("#giContact").value = info.contact || "";
+  document.querySelector("#giDiscordInvite").value = info.discordInvite || "";
+  const recRadios = document.querySelectorAll('input[name="giRecruiting"]');
+  recRadios.forEach((r) => { r.checked = (r.value === (info.recruiting ? "1" : "0")); });
+  const msg = document.querySelector("#giMsg");
+  if (msg) {
+    msg.textContent = info.updatedAt ? `최종 수정: ${info.updatedAt} by ${info.updatedBy || "?"}` : "신규 작성";
+    msg.className = "hint";
+  }
+}
+
+async function saveGuildInfo() {
+  const guild = document.querySelector("#giGuildPick").value;
+  const msg = document.querySelector("#giMsg");
+  if (!guild) { msg.textContent = "문파 선택"; msg.className = "hint error"; return; }
+  const recruiting = document.querySelector('input[name="giRecruiting"]:checked').value === "1";
+  const payload = {
+    action: "guildInfo:set",
+    guild,
+    recruiting,
+    description: document.querySelector("#giDescription").value,
+    requirements: document.querySelector("#giRequirements").value,
+    contact: document.querySelector("#giContact").value,
+    discordInvite: document.querySelector("#giDiscordInvite").value,
+  };
+  msg.textContent = "저장 중…"; msg.className = "hint";
+  try {
+    const r = await api(payload);
+    if (!r.ok) throw new Error(r.error || "");
+    msg.textContent = `${guild} 정보 저장 완료 ✓`;
+    msg.className = "hint success";
+    await loadGuildsInfoAdmin();
+    populateGuildEditorPickers();
+    document.querySelector("#giGuildPick").value = guild;
+  } catch (err) {
+    msg.textContent = "실패: " + err.message;
+    msg.className = "hint error";
+  }
+}
+
+// ---- 공성 즉석 매칭 ----
+
+async function sendSiegeHelpPing() {
+  const guild = document.querySelector("#shGuildPick").value;
+  const role = document.querySelector("#shRole").value.trim();
+  const count = parseInt(document.querySelector("#shCount").value, 10) || 1;
+  const note = document.querySelector("#shNote").value;
+  const urgent = document.querySelector("#shUrgent").checked;
+  const msg = document.querySelector("#shMsg");
+  if (!guild) { msg.textContent = "문파 선택"; msg.className = "hint error"; return; }
+  if (!role) { msg.textContent = "필요 인원/직업 입력"; msg.className = "hint error"; return; }
+  msg.textContent = "전송 중…"; msg.className = "hint";
+  try {
+    const r = await api({ action: "siege:needHelp", guild, role, count, note, urgent });
+    if (!r.ok) throw new Error(r.error || "");
+    msg.textContent = `✓ 디스코드 알림 전송 완료 (${guild} · ${role} ${count}명${urgent ? " · 긴급" : ""})`;
+    msg.className = "hint success";
+    document.querySelector("#shNote").value = "";
+    document.querySelector("#shUrgent").checked = false;
+  } catch (err) {
+    msg.textContent = "실패: " + err.message;
+    msg.className = "hint error";
+  }
 }
 
 function populateGuildDatalist() {
@@ -999,6 +1096,19 @@ function init() {
 
   // 계정 관리
   document.querySelector("#acctSaveBtn")?.addEventListener("click", handleSaveAccount);
+
+  // 문파 모집 정보
+  document.querySelector("#giGuildPick")?.addEventListener("change", loadGuildInfoIntoForm);
+  document.querySelector("#giLoadBtn")?.addEventListener("click", loadGuildInfoIntoForm);
+  document.querySelector("#giSaveBtn")?.addEventListener("click", saveGuildInfo);
+
+  // 공성 즉석 매칭
+  document.querySelectorAll(".sh-quick button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelector("#shRole").value = btn.dataset.role || "";
+    });
+  });
+  document.querySelector("#shSendBtn")?.addEventListener("click", sendSiegeHelpPing);
 
   // 문파 필터
   document.querySelector("#guildFilter")?.addEventListener("change", (e) => {

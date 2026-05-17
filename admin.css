@@ -721,3 +721,90 @@
   .data-table { font-size: 12px; }
   .data-table th { font-size: 9.5px; }
 }
+
+/* ===== 문파 모집 정보 편집 + 즉석 매칭 ===== */
+
+.guild-info-edit, .siege-help-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gi-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gi-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.gi-label.gi-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.gi-input {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-family: inherit;
+}
+
+.gi-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--panel);
+}
+
+.gi-toggle {
+  display: flex;
+  gap: 14px;
+  font-size: 13px;
+}
+
+.gi-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+textarea.gi-input {
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+}
+
+.sh-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.sh-quick button {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.sh-quick button:hover {
+  background: var(--accent);
+  color: #1a0d00;
+  border-color: var(--accent);
+}

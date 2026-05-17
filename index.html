@@ -11,8 +11,8 @@
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon.svg">
   <link rel="preconnect" href="https://script.google.com" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=36" />
-  <link rel="stylesheet" href="landing.css?v=36" />
+  <link rel="stylesheet" href="styles.css?v=37" />
+  <link rel="stylesheet" href="landing.css?v=37" />
 </head>
 <body class="landing-body">
   <header class="landing-hero">
@@ -111,6 +111,39 @@
     <div class="family-grid" id="familyGrid"></div>
   </main>
 
+  <dialog id="guildInfoDialog" class="dialog guild-info-dialog">
+    <div class="gid-header">
+      <h3 id="gidTitle">문파명</h3>
+      <button type="button" class="gid-close" aria-label="닫기" id="gidClose">✕</button>
+    </div>
+    <div class="gid-body">
+      <div class="gid-status" id="gidStatus"></div>
+      <div class="gid-section" id="gidDescSec" hidden>
+        <div class="gid-label">📜 문파 소개</div>
+        <div class="gid-content" id="gidDesc"></div>
+      </div>
+      <div class="gid-section" id="gidReqSec" hidden>
+        <div class="gid-label">✅ 가입 조건</div>
+        <div class="gid-content" id="gidReq"></div>
+      </div>
+      <div class="gid-section" id="gidContactSec" hidden>
+        <div class="gid-label">📞 연락처</div>
+        <div class="gid-content" id="gidContact"></div>
+      </div>
+      <div class="gid-section" id="gidDiscordSec" hidden>
+        <a class="gid-discord-btn" id="gidDiscord" target="_blank" rel="noopener">💬 디스코드 입장</a>
+      </div>
+      <div class="gid-empty" id="gidEmpty" hidden>
+        <p>아직 등록된 문파 정보가 없습니다.</p>
+        <p class="hint">관리자가 등록하면 모집 정보가 여기에 표시됩니다.</p>
+      </div>
+      <div class="gid-actions">
+        <a class="primary" id="gidSiegeLink" href="#">⚔️ 공성 신청 페이지로</a>
+      </div>
+      <div class="gid-updated" id="gidUpdated"></div>
+    </div>
+  </dialog>
+
   <footer class="site-footer">
     <div class="footer-line">신청 가능: 월~목 00:00 ~ 23:30 (KST)</div>
     <div class="footer-line">
@@ -126,7 +159,7 @@
     </div>
   </footer>
 
-  <script src="shared.js?v=36" defer></script>
-  <script src="landing.js?v=36" defer></script>
+  <script src="shared.js?v=37" defer></script>
+  <script src="landing.js?v=37" defer></script>
 </body>
 </html>

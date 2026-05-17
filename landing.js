@@ -124,6 +124,17 @@ async function apiCastleHistory(days) {
   } catch { return null; }
 }
 
+async function apiGuildsInfo() {
+  try {
+    const res = await fetch(`${getEndpoint()}?action=guildsInfo`);
+    if (!res.ok) return null;
+    const d = await res.json();
+    if (!d.ok) return null;
+    writeCache("guilds_info", d.guilds || {});
+    return d.guilds || {};
+  } catch { return null; }
+}
+
 function renderCastleLords(lords) {
   const castles = ["주작성", "현무성", "청룡성", "백호성"];
   castles.forEach((c) => {
@@ -222,6 +233,92 @@ function setupCastleHistory() {
       loadCastleHistory();
     }
   });
+}
+
+// ---- 문파 정보 모달 ----
+
+let cachedGuildsInfo = {};
+
+function openGuildInfoDialog(guild) {
+  const dlg = $("#guildInfoDialog");
+  if (!dlg) return;
+  const info = cachedGuildsInfo[guild] || {};
+  const hasInfo = info.requirements || info.contact || info.discordInvite || info.description;
+
+  $("#gidTitle").textContent = guild;
+
+  const statusEl = $("#gidStatus");
+  if (info.recruiting) {
+    statusEl.className = "gid-status open";
+    statusEl.innerHTML = "✨ <strong>모집중</strong>";
+  } else if (hasInfo) {
+    statusEl.className = "gid-status closed";
+    statusEl.innerHTML = "마감 (모집 안 함)";
+  } else {
+    statusEl.className = "gid-status";
+    statusEl.innerHTML = "";
+  }
+
+  function setSection(secId, contentId, value, isLink) {
+    const sec = $(secId);
+    const content = $(contentId);
+    if (!value) { sec.hidden = true; return; }
+    sec.hidden = false;
+    if (isLink) {
+      $("#gidDiscord").href = value;
+      return;
+    }
+    // 줄바꿈 보존, html escape
+    content.innerHTML = escapeHtml(value).replace(/\n/g, "<br>");
+  }
+  setSection("#gidDescSec", "#gidDesc", info.description, false);
+  setSection("#gidReqSec", "#gidReq", info.requirements, false);
+  setSection("#gidContactSec", "#gidContact", info.contact, false);
+  setSection("#gidDiscordSec", null, info.discordInvite, true);
+
+  $("#gidEmpty").hidden = hasInfo || info.recruiting;
+  $("#gidSiegeLink").href = `siege.html?guild=${encodeURIComponent(guild)}`;
+  $("#gidUpdated").textContent = info.updatedAt ? `갱신: ${info.updatedAt}` : "";
+
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+}
+
+function setupGuildInfoDialog() {
+  const dlg = $("#guildInfoDialog");
+  if (!dlg) return;
+  const closeBtn = $("#gidClose");
+  if (closeBtn) closeBtn.addEventListener("click", () => dlg.close());
+  // 배경 클릭 시 닫기
+  dlg.addEventListener("click", (e) => {
+    if (e.target === dlg) dlg.close();
+  });
+
+  // grid 안의 info 버튼 위임
+  const grid = $("#familyGrid");
+  if (grid) {
+    grid.addEventListener("click", (e) => {
+      const btn = e.target.closest(".guild-info-btn");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const guild = btn.dataset.infoGuild;
+      if (guild) openGuildInfoDialog(guild);
+    });
+  }
+}
+
+async function loadGuildsInfo() {
+  const cached = readCache("guilds_info");
+  if (cached) cachedGuildsInfo = cached;
+  const fresh = await apiGuildsInfo();
+  if (fresh) {
+    cachedGuildsInfo = fresh;
+    // 그리드 재렌더 (배지 갱신용)
+    if (typeof renderGrid === "function" && _lastRenderArgs) {
+      renderGrid(..._lastRenderArgs);
+    }
+  }
 }
 
 // ---- 명예의 전당 ----
@@ -445,7 +542,10 @@ function castlesByGuild(lords) {
   return map;
 }
 
+let _lastRenderArgs = null;
+
 function renderGrid(members, entries, lords) {
+  _lastRenderArgs = [members, entries, lords];
   const range = thisWeekRange();
   const weekEntries = entries.filter((e) => inRange(e.dateKst, range.start, range.end));
   const bestMap = bestPerNick(weekEntries);
@@ -510,8 +610,11 @@ function renderGrid(members, entries, lords) {
       const isLeader = g === ALLIANCE.leader.guild;
       const myCastles = castleMap.get(g) || [];
       const url = `siege.html?guild=${encodeURIComponent(g)}`;
+      const info = (cachedGuildsInfo[g] || {});
+      const isRecruiting = !!info.recruiting;
       const tagPills = [];
       if (isLeader) tagPills.push(`<span class="leader-badge">👑 연합장</span>`);
+      if (isRecruiting) tagPills.push(`<span class="recruiting-badge" title="모집중">✨ 모집중</span>`);
       myCastles.forEach((c) => tagPills.push(`<span class="castle-lord-badge">🏰 ${escapeHtml(c).replace("성","")}</span>`));
       const castleBadges = tagPills.length
         ? `<div class="castle-tags">${tagPills.join("")}</div>`
@@ -520,7 +623,12 @@ function renderGrid(members, entries, lords) {
       const circ = 2 * Math.PI * 18;
       const offset = circ * (1 - s.pct / 100);
       const pctColor = s.pct >= 80 ? "#69d586" : s.pct >= 40 ? "#FFCC00" : s.pct > 0 ? "#ff8a82" : "#3a424e";
-      return `<a href="${url}" class="guild-card ${isLeader ? "is-leader" : ""} ${myCastles.length ? "is-castle-lord" : ""}" title="${escapeHtml(g)} 신청 페이지로">
+      const classes = ["guild-card"];
+      if (isLeader) classes.push("is-leader");
+      if (myCastles.length) classes.push("is-castle-lord");
+      if (isRecruiting) classes.push("is-recruiting");
+      return `<a href="${url}" class="${classes.join(" ")}" title="${escapeHtml(g)} 신청 페이지로">
+        <button type="button" class="guild-info-btn" data-info-guild="${escapeHtml(g)}" aria-label="${escapeHtml(g)} 문파 정보" title="문파 정보">ℹ️</button>
         <div class="guild-name">${escapeHtml(g)}</div>
         <div class="ring-wrap">
           <svg class="guild-ring" viewBox="0 0 48 48" aria-hidden="true">
@@ -582,6 +690,7 @@ async function apiBootstrap() {
     writeCache("entries", d.entries || []);
     writeCache("lords", d.lords || {});
     writeCache("guidelines", d.guidelines || "");
+    if (d.guilds) writeCache("guilds_info", d.guilds);
     return d;
   } catch { return null; }
 }
@@ -593,12 +702,15 @@ async function init() {
   setupHallOfFameTabs();
   loadHallOfFame();
   setupCastleHistory();
+  setupGuildInfoDialog();
 
   // 1) 캐시 즉시 표시 (있으면) — SW 는 shared.js 가 자동 등록
   const cMembers = readCache("members") || [];
   const cEntries = readCache("entries") || [];
   const cLords = readCache("lords") || {};
   const cGuidelines = readCache("guidelines");
+  const cGuilds = readCache("guilds_info") || {};
+  if (cGuilds) cachedGuildsInfo = cGuilds;
   const hasCache = cMembers.length || cEntries.length || Object.keys(cLords).length || cGuidelines;
   if (hasCache) {
     renderGrid(cMembers, cEntries, cLords);
@@ -612,13 +724,15 @@ async function init() {
   // bootstrap (단일 호출) 우선 시도. 실패 시 개별 호출로 폴백.
   const boot = await apiBootstrap();
   if (boot) {
+    if (boot.guilds) cachedGuildsInfo = boot.guilds;
     renderGrid(boot.members || [], boot.entries || [], boot.lords || {});
     renderCastleLords(boot.lords || {});
     renderGuidelines(boot.guidelines || "");
   } else {
-    const [members, entries, lords, guidelines] = await Promise.all([
-      apiMembers(), apiList(), apiCastleLords(), apiGuidelines(),
+    const [members, entries, lords, guidelines, guildsInfo] = await Promise.all([
+      apiMembers(), apiList(), apiCastleLords(), apiGuidelines(), apiGuildsInfo(),
     ]);
+    if (guildsInfo) cachedGuildsInfo = guildsInfo;
     renderGrid(members, entries, lords);
     renderCastleLords(lords);
     renderGuidelines(guidelines);
