@@ -125,19 +125,20 @@ function formatBigNum(n) {
   return out.trim() || (n + "");
 }
 
-// 공성 점수 조회 (Apps Script 프록시)
-async function fetchScore(jobCode, hp, mp) {
-  try {
-    const url = `${getEndpoint()}?action=scoreCalc&job_code=${encodeURIComponent(jobCode)}&hp=${hp}&mp=${mp}`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const d = await res.json();
-    if (!d.ok) return null;
-    return d.score || "0.00";
-  } catch { return null; }
+// 공성 점수 추정 (클라이언트 자체 계산 — 서버 호출 없음)
+// 공식: (HP + MP × 2) ÷ 1000, 단 마력 미사용 직업(전사/도적) 은 MP=0 강제
+// 게임 내 표기와 일부 구간(특히 매우 높은 체마)에서 차이 있을 수 있음.
+function calcScoreClient(jobCode, hp, mp) {
+  const isSword = jobCode === "Warrior" || jobCode === "Sheif";
+  const h = Math.max(0, hp || 0);
+  const m = isSword ? 0 : Math.max(0, mp || 0);
+  return (h + m * 2) / 1000;
 }
 
-let _scoreFetchSeq = 0;
+function formatScore(n) {
+  if (!isFinite(n) || n <= 0) return "0.00";
+  return n.toFixed(2);
+}
 
 function setupCalculator() {
   const jobSel = document.getElementById("calcJob");
@@ -175,7 +176,7 @@ function setupCalculator() {
     compute();
   }
 
-  async function compute() {
+  function compute() {
     const job = jobSel.value;
     const cH = parseInt(cHp.value, 10) || 0;
     const cM = parseInt(cMp.value, 10) || 0;
@@ -186,28 +187,15 @@ function setupCalculator() {
     eMp.textContent = formatBigNum(exp.mpExp);
     eTotal.textContent = formatBigNum(exp.totalExp);
 
-    // 점수는 비동기 (race condition 방어용 seq)
-    const mySeq = ++_scoreFetchSeq;
-    sDelta.textContent = "계산 중…";
-    sSub.textContent = "";
     if (!cH && !cM && !tH && !tM) {
       sDelta.textContent = "- → -";
+      sSub.textContent = "";
       return;
     }
-    const [scoreBefore, scoreAfter] = await Promise.all([
-      fetchScore(job, cH, cM),
-      fetchScore(job, tH, tM),
-    ]);
-    if (mySeq !== _scoreFetchSeq) return; // 이미 새 입력이 들어왔으면 무시
-    if (scoreBefore === null || scoreAfter === null) {
-      sDelta.textContent = "점수 조회 실패";
-      sSub.textContent = "서버 응답 없음";
-      return;
-    }
-    const before = parseFloat(scoreBefore) || 0;
-    const after = parseFloat(scoreAfter) || 0;
+    const before = calcScoreClient(job, cH, cM);
+    const after = calcScoreClient(job, tH, tM);
     const diff = after - before;
-    sDelta.textContent = `${scoreBefore} → ${scoreAfter}`;
+    sDelta.textContent = `${formatScore(before)} → ${formatScore(after)}`;
     const sign = diff > 0 ? "+" : "";
     sSub.textContent = `Δ ${sign}${diff.toFixed(2)} · 정예 적용 ${(after * 1.30).toFixed(2)}`;
   }

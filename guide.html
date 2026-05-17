@@ -9,8 +9,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="styles.css?v=35" />
-  <link rel="stylesheet" href="guide.css?v=35" />
+  <link rel="stylesheet" href="styles.css?v=36" />
+  <link rel="stylesheet" href="guide.css?v=36" />
   <link rel="preconnect" href="https://script.google.com" crossorigin>
 </head>
 <body class="guide-body">
@@ -160,7 +160,7 @@
 
     <section class="card" id="calc">
       <h2>🧮 체마 → 점수 / 필요 경험치 계산기</h2>
-      <p class="hint">바람비전 <code>expcal</code> 룰 기반. 현재→목표 체마로 필요한 경험치와 공성 점수 변동을 산출. <strong>점수는 barambook.com 공식 API 프록시</strong> (Apps Script 경유).</p>
+      <p class="hint">바람비전 <code>expcal</code> 룰 기반. 현재→목표 체마로 필요한 경험치와 공성 점수 변동을 산출. <strong>모든 계산은 브라우저에서 즉시 처리</strong> (서버 호출 없음).</p>
 
       <div class="calc-form">
         <label class="field">
@@ -218,7 +218,7 @@
           <div class="calc-result-sub" id="calcScoreSub"></div>
         </div>
       </div>
-      <p class="hint">※ EXP 공식은 바람비전 expcal 코드 분석 추출(50 HP / 25 MP 단계 누적). 점수는 barambook.com 공식 API 호출. 두 결과 모두 게임 실측과 차이가 있을 수 있음.</p>
+      <p class="hint">※ EXP 공식은 바람비전 expcal 코드 분석 추출(50 HP / 25 MP 단계 누적). 점수는 단순 추정 <code>(HP + MP×2) ÷ 1000</code> — 저~중간 체마에서 정확, 매우 높은 체마에서는 게임 표기보다 약간 다를 수 있음.</p>
     </section>
 
     <section class="card" id="tools">
@@ -330,7 +330,7 @@
     </div>
   </footer>
 
-  <script src="shared.js?v=35" defer></script>
-  <script src="guide.js?v=35" defer></script>
+  <script src="shared.js?v=36" defer></script>
+  <script src="guide.js?v=36" defer></script>
 </body>
 </html>
