@@ -82,6 +82,17 @@ async function apiGuidelines() {
   } catch { return ""; }
 }
 
+async function apiHallOfFame(scope, period) {
+  try {
+    const res = await fetch(`${getEndpoint()}?action=hallOfFame&scope=${encodeURIComponent(scope)}&period=${encodeURIComponent(period)}&limit=10`);
+    if (!res.ok) return null;
+    const d = await res.json();
+    if (!d.ok) return null;
+    writeCache(`hof_${scope}_${period}`, d);
+    return d;
+  } catch { return null; }
+}
+
 function renderCastleLords(lords) {
   const castles = ["주작성", "현무성", "청룡성", "백호성"];
   castles.forEach((c) => {
@@ -125,6 +136,108 @@ function renderParticipating(guilds, guildStats) {
       ${s.total > 0 ? `<span class="participating-pct">${s.pct}%</span>` : ""}
     </a>`;
   }).join("");
+}
+
+// ---- 명예의 전당 ----
+
+let hofScope = "personal";
+let hofPeriod = "week";
+
+function renderHallOfFame(data) {
+  const body = $("#hofBody");
+  const rangeEl = $("#hofRange");
+  if (!body) return;
+  if (!data || !data.rows || !data.rows.length) {
+    body.innerHTML = `<div class="hint">${data ? "표시할 데이터가 없습니다" : "불러오기 실패"}</div>`;
+    if (rangeEl) rangeEl.textContent = "";
+    return;
+  }
+  if (rangeEl) rangeEl.textContent = `${data.range.start} ~ ${data.range.end}`;
+
+  const medal = (i) => i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`;
+
+  if (data.scope === "personal") {
+    body.innerHTML = `
+      <table class="hof-table">
+        <thead><tr><th>순위</th><th>닉네임</th><th>문파</th><th class="num">가중치</th><th class="num">원점수</th><th>정예</th></tr></thead>
+        <tbody>${data.rows.map((r, i) => `
+          <tr class="${i === 0 ? "rank-1" : i === 1 ? "rank-2" : i === 2 ? "rank-3" : ""}">
+            <td class="rank">${medal(i)}</td>
+            <td><strong>${escapeHtml(r.nickname)}</strong></td>
+            <td>${escapeHtml(r.guild || "-")}</td>
+            <td class="num accent">${r.weightedScore.toFixed(2)}</td>
+            <td class="num muted">${r.baseScore.toFixed(2)}</td>
+            <td>${renderEliteMini(r.elite)}</td>
+          </tr>`).join("")}</tbody>
+      </table>`;
+    return;
+  }
+  if (data.scope === "guild") {
+    body.innerHTML = `
+      <table class="hof-table">
+        <thead><tr><th>순위</th><th>문파</th><th>계</th><th class="num">합산</th><th class="num">평균</th><th class="num">인원</th></tr></thead>
+        <tbody>${data.rows.map((r, i) => `
+          <tr class="${i === 0 ? "rank-1" : i === 1 ? "rank-2" : i === 2 ? "rank-3" : ""}">
+            <td class="rank">${medal(i)}</td>
+            <td><strong>${escapeHtml(r.guild)}</strong></td>
+            <td class="muted">${escapeHtml(r.family || "-")}</td>
+            <td class="num accent">${r.totalScore.toFixed(2)}</td>
+            <td class="num">${r.avgScore.toFixed(2)}</td>
+            <td class="num muted">${r.members}</td>
+          </tr>`).join("")}</tbody>
+      </table>`;
+    return;
+  }
+  if (data.scope === "family") {
+    body.innerHTML = `
+      <table class="hof-table">
+        <thead><tr><th>순위</th><th>계</th><th class="num">평균</th><th class="num">합산</th><th class="num">인원</th></tr></thead>
+        <tbody>${data.rows.map((r, i) => `
+          <tr class="${i === 0 ? "rank-1" : i === 1 ? "rank-2" : i === 2 ? "rank-3" : ""}">
+            <td class="rank">${medal(i)}</td>
+            <td><strong>${escapeHtml(r.family)}</strong></td>
+            <td class="num accent">${r.avgScore.toFixed(2)}</td>
+            <td class="num">${r.totalScore.toFixed(2)}</td>
+            <td class="num muted">${r.members}</td>
+          </tr>`).join("")}</tbody>
+      </table>`;
+  }
+}
+
+function renderEliteMini(v) {
+  v = (v || "").trim();
+  if (v === "O") return `<span class="elite-mini elite-O" title="정예 참전">⭕</span>`;
+  if (v === "X") return `<span class="elite-mini elite-X" title="불참">❌</span>`;
+  if (v === "최대한 참여" || v === "최대") return `<span class="elite-mini elite-MAX" title="최대한">⏳</span>`;
+  return `<span class="muted">-</span>`;
+}
+
+async function loadHallOfFame() {
+  // 캐시 즉시 표시
+  const cached = readCache(`hof_${hofScope}_${hofPeriod}`);
+  if (cached) renderHallOfFame(cached);
+  else $("#hofBody").innerHTML = `<div class="hint">로딩 중…</div>`;
+  const fresh = await apiHallOfFame(hofScope, hofPeriod);
+  if (fresh) renderHallOfFame(fresh);
+}
+
+function setupHallOfFameTabs() {
+  $$(".hof-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      $$(".hof-tab").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      hofScope = btn.dataset.scope || "personal";
+      loadHallOfFame();
+    });
+  });
+  $$(".hof-period-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      $$(".hof-period-tab").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      hofPeriod = btn.dataset.period || "week";
+      loadHallOfFame();
+    });
+  });
 }
 
 function renderGuidelines(text) {
@@ -327,6 +440,9 @@ async function apiBootstrap() {
 async function init() {
   renderTodayBanner();
   setInterval(renderTodayBanner, 60 * 1000);
+
+  setupHallOfFameTabs();
+  loadHallOfFame();
 
   // 1) 캐시 즉시 표시 (있으면) — SW 는 shared.js 가 자동 등록
   const cMembers = readCache("members") || [];

@@ -66,6 +66,137 @@ function rateLimit_(key, limitN, windowSec) {
 }
 
 // ========================================
+// Discord Webhook (선택적, Script Property 'DISCORD_WEBHOOK_URL' 설정 시만 활성)
+// ========================================
+
+/**
+ * 디스코드 webhook 비활성 (기본). 활성화는 setupDiscordWebhook('https://discord.com/api/webhooks/...') 호출.
+ * 빈 문자열 전달하면 비활성화.
+ */
+function setupDiscordWebhook(url) {
+  const props = PropertiesService.getScriptProperties();
+  if (!url) {
+    props.deleteProperty('DISCORD_WEBHOOK_URL');
+    return 'Discord webhook 비활성화됨';
+  }
+  if (!/^https:\/\/(discord\.com|discordapp\.com)\/api\/webhooks\//.test(url)) {
+    return 'Webhook URL 형식 오류 (discord.com/api/webhooks/... 만 허용)';
+  }
+  props.setProperty('DISCORD_WEBHOOK_URL', url);
+  return 'Discord webhook 활성화 완료: ' + url.slice(0, 60) + '...';
+}
+
+function getDiscordWebhook_() {
+  return PropertiesService.getScriptProperties().getProperty('DISCORD_WEBHOOK_URL') || '';
+}
+
+/**
+ * Discord 에 메시지 전송. webhook 미설정 시 노옵 (정상 반환).
+ * embeds 는 Discord embed object 배열.
+ */
+function notifyDiscord_(content, embeds) {
+  const url = getDiscordWebhook_();
+  if (!url) return false;
+  try {
+    const payload = {};
+    if (content) payload.content = content;
+    if (embeds && embeds.length) payload.embeds = embeds;
+    if (!payload.content && !payload.embeds) return false;
+    UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+    });
+    return true;
+  } catch (e) {
+    console.log('discord webhook 실패: ' + (e && e.message || e));
+    return false;
+  }
+}
+
+// 점수 등록 이벤트 알림 (embed 사용)
+function notifyDiscordSubmit_(opts) {
+  if (!getDiscordWebhook_()) return;
+  const castle = opts.castle || '';
+  const colorMap = { '주작성': 0xff5147, '현무성': 0x58a6ff, '청룡성': 0x2ea043, '백호성': 0xc9d1d9 };
+  const embed = {
+    title: `⚔️ ${castle} 점수 ${opts.updated ? '갱신' : '등록'}`,
+    color: colorMap[castle] || 0x003399,
+    fields: [
+      { name: '닉네임', value: String(opts.nickname || '-'), inline: true },
+      { name: '문파', value: String(opts.guild || '-'), inline: true },
+      { name: '점수', value: String(opts.score || '-'), inline: true },
+      { name: '정예', value: String(opts.elite || '-'), inline: true },
+    ],
+    timestamp: new Date().toISOString(),
+    footer: { text: 'EU연합 통합시스템' },
+  };
+  if (opts.note) embed.fields.push({ name: '비고', value: String(opts.note).slice(0, 200), inline: false });
+  notifyDiscord_(null, [embed]);
+}
+
+// 성주 변경 알림
+function notifyDiscordCastleChange_(castle, guild) {
+  if (!getDiscordWebhook_()) return;
+  const embed = {
+    title: `👑 ${castle} 성주 변경`,
+    description: guild ? `새 성주 문파: **${guild}**` : '미점령 처리됨',
+    color: 0xFFCC00,
+    timestamp: new Date().toISOString(),
+    footer: { text: 'EU연합 통합시스템' },
+  };
+  notifyDiscord_(null, [embed]);
+}
+
+/**
+ * 주간 결과 요약 — 일요일 밤 등 Apps Script Trigger 로 호출.
+ * 트리거 설정 안내: 편집기 → 트리거 → 함수 postWeeklyDiscordSummary + 시간 기반 + 매주 일요일 23:00.
+ */
+function postWeeklyDiscordSummary() {
+  if (!getDiscordWebhook_()) return;
+  const range = thisWeekRange_();
+  const entries = entriesInRange_(listEntries_(), range.start, range.end);
+  if (!entries.length) {
+    notifyDiscord_('📊 이번 주 등록 내역이 없습니다.', null);
+    return;
+  }
+  const members = listMembers_();
+  const memberMap = new Map();
+  members.forEach((m) => memberMap.set(m.nickname.toLowerCase(), m));
+  const best = bestPerNick_(entries);
+
+  // 개인 TOP5 (가중치 점수)
+  const personal = [];
+  best.forEach((e, nickKey) => {
+    const w = weightedScore_(e, entries, members);
+    personal.push({ nickname: e.nickname, guild: e.guild || (memberMap.get(nickKey) && memberMap.get(nickKey).guild) || '-', score: w });
+  });
+  personal.sort((a, b) => b.score - a.score);
+  const top5 = personal.slice(0, 5).map((p, i) => `${i+1}. **${p.nickname}** (${p.guild}) · ${p.score.toFixed(2)}`).join('\n');
+
+  // 문파 합산 TOP3
+  const guildSum = new Map();
+  personal.forEach((p) => guildSum.set(p.guild, (guildSum.get(p.guild) || 0) + p.score));
+  const top3Guild = Array.from(guildSum.entries())
+    .sort((a, b) => b[1] - a[1]).slice(0, 3)
+    .map((x, i) => `${i+1}. **${x[0]}** · ${x[1].toFixed(2)}`).join('\n');
+
+  const embed = {
+    title: `📊 ${range.start} ~ ${range.end} 주간 결과`,
+    color: 0x003399,
+    fields: [
+      { name: '🥇 개인 TOP 5 (가중치)', value: top5 || '-', inline: false },
+      { name: '🏰 문파 합산 TOP 3', value: top3Guild || '-', inline: false },
+      { name: '총 등록 인원', value: String(personal.length) + '명', inline: true },
+    ],
+    timestamp: new Date().toISOString(),
+    footer: { text: 'EU연합 통합시스템 · 주간 요약' },
+  };
+  notifyDiscord_(null, [embed]);
+}
+
+// ========================================
 // 다중 관리자 계정 (전체 관리자 + 문파별 관리자)
 // 저장 형식 (PropertiesService 'ADMIN_ACCOUNTS'): { username: { password, scope } }
 //   - scope: 'all' (전체) 또는 계 이름 (예: '쿠데타계')
@@ -249,6 +380,7 @@ function setCastleLord_(body) {
     : null;
   PropertiesService.getScriptProperties().setProperty('CASTLE_LORDS', JSON.stringify(lords));
   invalidateBootstrap_();
+  notifyDiscordCastleChange_(castle, guild);
   return { ok: true };
 }
 
@@ -309,6 +441,13 @@ function doGet(e) {
     if (action === 'castleLords') return jsonOut_({ ok: true, lords: getCastleLords_() });
     if (action === 'guidelines') return jsonOut_({ ok: true, text: getGuidelines_() });
     if (action === 'bootstrap') return jsonOut_(getBootstrap_());
+    if (action === 'hallOfFame') {
+      return jsonOut_(getHallOfFame_({
+        period: e.parameter.period,
+        scope: e.parameter.scope,
+        limit: e.parameter.limit,
+      }));
+    }
     return jsonOut_({ ok: false, error: 'unknown action' });
   } catch (err) {
     return jsonOut_({ ok: false, error: safeErr_(err) });
@@ -621,6 +760,67 @@ function bestPerNick_(entries) {
   return map;
 }
 
+/**
+ * 가중치 점수 = base × elite_mult × streak_mult
+ *   elite: O = 1.30,  최대한 참여 = 1.15,  나머지 = 1.00
+ *   streak: 같은 닉네임의 최근 N주 연속 등록 (각 주 최소 1건 베스트 점수 존재) →
+ *           1.00 + 0.05 × (N-1), 최대 1.30 (7주 연속)
+ *
+ * @param entry  bestPerNick_ 결과 한 건 (또는 단일 entry)
+ * @param allEntries  최근 8주 entries 풀 (streak 계산용)
+ * @param members  (옵션) 무시
+ */
+function weightedScore_(entry, allEntries, members) {
+  const base = parseFloat(entry && entry.score) || 0;
+  if (base <= 0) return 0;
+  const elite = (entry && entry.elite || '').toString().trim();
+  let eliteMult = 1.0;
+  if (elite === 'O') eliteMult = 1.30;
+  else if (elite === '최대한 참여' || elite === '최대') eliteMult = 1.15;
+
+  // 연속 출석: 이번 주 포함 최근 N주 연속, N >= 1
+  const nick = (entry.nickname || '').trim().toLowerCase();
+  let streakWeeks = 0;
+  if (nick && allEntries && allEntries.length) {
+    const week = thisWeekRange_();
+    // 주별 시작일 7개 (이번 주 ~ 6주 전)
+    for (let w = 0; w < 8; w++) {
+      const startDate = new Date(week.start + 'T00:00:00Z');
+      startDate.setUTCDate(startDate.getUTCDate() - 7 * w);
+      const endDate = new Date(startDate.getTime());
+      endDate.setUTCDate(endDate.getUTCDate() + 6);
+      const wStart = kstDateStr_(startDate);
+      const wEnd = kstDateStr_(endDate);
+      const has = allEntries.some((e) =>
+        (e.nickname || '').trim().toLowerCase() === nick &&
+        (e.dateKst || '').slice(0, 10) >= wStart &&
+        (e.dateKst || '').slice(0, 10) <= wEnd
+      );
+      if (has) streakWeeks++; else break;
+    }
+  }
+  const streakMult = Math.min(1.30, 1.0 + 0.05 * Math.max(0, streakWeeks - 1));
+  return base * eliteMult * streakMult;
+}
+
+// 시즌(분기) 범위 — 1-3월/4-6월/7-9월/10-12월
+function seasonRange_() {
+  const d = kstNow_();
+  const month = d.getUTCMonth(); // 0-indexed
+  const seasonStart = Math.floor(month / 3) * 3; // 0,3,6,9
+  const start = new Date(Date.UTC(d.getUTCFullYear(), seasonStart, 1));
+  const end = new Date(Date.UTC(d.getUTCFullYear(), seasonStart + 3, 0));
+  return { start: kstDateStr_(start), end: kstDateStr_(end) };
+}
+
+// 최근 N일 범위
+function recentDaysRange_(days) {
+  const end = kstNow_();
+  const start = new Date(end.getTime());
+  start.setUTCDate(start.getUTCDate() - (days - 1));
+  return { start: kstDateStr_(start), end: kstDateStr_(end) };
+}
+
 function getWeeklyStats_(body) {
   const a = authenticate_(body);
   if (!a.ok) return { ok: false, error: 'unauthorized' };
@@ -772,6 +972,113 @@ function getMonthlyGrowth_(body) {
   });
 
   return { ok: true, range, rows };
+}
+
+// ====================================================
+// 명예의 전당 (Hall of Fame)
+//
+// 가중치 점수 = base × elite_mult × streak_mult
+//   - elite: O = 1.30, 최대한 참여 = 1.15, 그 외 1.00
+//   - streak: 최근 N주 연속 등록 시 1.0 + 0.05×(N-1), 최대 1.30
+//
+// 스코프: 'personal' (개인 TOP10), 'guild' (문파 합산 TOP10), 'family' (계 평균 TOP10)
+// 기간: 'week' (이번주), 'month' (최근 28일), 'season' (분기)
+// 인증 불필요 (랜딩에서 누구나 조회 가능).
+// ====================================================
+
+function getHallOfFame_(params) {
+  const period = (params && params.period) || 'week';
+  const scope = (params && params.scope) || 'personal';
+  const limit = Math.max(1, Math.min(50, parseInt((params && params.limit) || '10', 10) || 10));
+
+  let range;
+  if (period === 'month') range = recentDaysRange_(28);
+  else if (period === 'season') range = seasonRange_();
+  else range = thisWeekRange_();
+
+  const allEntries = listEntries_();
+  const members = listMembers_();
+  const inRange = entriesInRange_(allEntries, range.start, range.end);
+  // streak 계산은 최근 8주 풀 필요
+  const streakWindow = recentDaysRange_(8 * 7);
+  const streakPool = entriesInRange_(allEntries, streakWindow.start, streakWindow.end);
+
+  // 닉네임 → 가중치 점수
+  const best = bestPerNick_(inRange);
+  const personalRows = [];
+  const memberMap = new Map();
+  members.forEach((m) => memberMap.set(m.nickname.toLowerCase(), m));
+
+  best.forEach((e, nickKey) => {
+    const mem = memberMap.get(nickKey);
+    const guild = (e.guild && e.guild.trim()) || (mem && mem.guild) || '';
+    const family = (mem && mem.family) || guildToFamilyServer_(guild) || '';
+    const w = weightedScore_(e, streakPool, members);
+    personalRows.push({
+      nickname: e.nickname,
+      guild, family,
+      baseScore: parseFloat(e.score) || 0,
+      weightedScore: Math.round(w * 100) / 100,
+      elite: e.elite || '',
+    });
+  });
+
+  if (scope === 'personal') {
+    personalRows.sort((a, b) => b.weightedScore - a.weightedScore);
+    return { ok: true, period, scope, range, rows: personalRows.slice(0, limit) };
+  }
+
+  if (scope === 'guild') {
+    const map = new Map();
+    personalRows.forEach((p) => {
+      const g = p.guild || '(미지정)';
+      if (!map.has(g)) map.set(g, { guild: g, family: p.family || '', totalScore: 0, members: 0 });
+      const o = map.get(g);
+      o.totalScore += p.weightedScore;
+      o.members++;
+    });
+    const out = Array.from(map.values()).map((o) => ({
+      guild: o.guild,
+      family: o.family,
+      totalScore: Math.round(o.totalScore * 100) / 100,
+      members: o.members,
+      avgScore: o.members ? Math.round((o.totalScore / o.members) * 100) / 100 : 0,
+    }));
+    out.sort((a, b) => b.totalScore - a.totalScore);
+    return { ok: true, period, scope, range, rows: out.slice(0, limit) };
+  }
+
+  if (scope === 'family') {
+    const map = new Map();
+    personalRows.forEach((p) => {
+      const f = p.family || '(미지정)';
+      if (!map.has(f)) map.set(f, { family: f, totalScore: 0, members: 0 });
+      const o = map.get(f);
+      o.totalScore += p.weightedScore;
+      o.members++;
+    });
+    const out = Array.from(map.values()).map((o) => ({
+      family: o.family,
+      totalScore: Math.round(o.totalScore * 100) / 100,
+      members: o.members,
+      avgScore: o.members ? Math.round((o.totalScore / o.members) * 100) / 100 : 0,
+    }));
+    // 평균으로 정렬 — 큰 계가 무조건 유리하지 않게
+    out.sort((a, b) => b.avgScore - a.avgScore);
+    return { ok: true, period, scope, range, rows: out.slice(0, limit) };
+  }
+
+  return { ok: false, error: 'unknown scope: ' + scope };
+}
+
+// 서버측 문파→계 매핑 (ALLIANCE_TREE_ 기반)
+function guildToFamilyServer_(guild) {
+  const g = (guild || '').trim();
+  if (!g) return '';
+  for (const fam in ALLIANCE_TREE_) {
+    if (ALLIANCE_TREE_[fam].indexOf(g) >= 0) return fam;
+  }
+  return '';
 }
 
 /**
@@ -975,6 +1282,7 @@ function submitEntry_(body) {
         safeCell_(note), '갱신', safeCell_(elite), safeCell_(guild),
       ]]);
       invalidateBootstrap_();
+      notifyDiscordSubmit_({ castle, nickname, score, elite, guild, note, updated: true });
       return { ok: true, updated: true };
     }
 
@@ -985,6 +1293,7 @@ function submitEntry_(body) {
       safeCell_(note), '', safeCell_(elite), safeCell_(guild),
     ]);
     invalidateBootstrap_();
+    notifyDiscordSubmit_({ castle, nickname, score, elite, guild, note, updated: false });
     return { ok: true, updated: false };
   } finally {
     try { lock.releaseLock(); } catch (_) {}

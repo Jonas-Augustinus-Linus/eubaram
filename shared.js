@@ -182,6 +182,69 @@ function writeCache(key, data) {
   }
 }
 
+// ---- 공성 카운트다운 ----
+// 월~목 00:00 ~ 23:30 신청 가능. 그 외 시간은 다음 신청 시작 시각까지.
+// kind: 'deadline' (오늘 마감까지), 'next-open' (다음 월요일 00:00 까지)
+function getSiegeCountdown() {
+  const d = nowKst();
+  const day = d.getUTCDay();      // 0=일, 1=월, ..., 6=토
+  const hour = d.getUTCHours();
+  const min = d.getUTCMinutes();
+  const sec = d.getUTCSeconds();
+  const cur = hour * 3600 + min * 60 + sec;
+  const close = 23 * 3600 + 30 * 60; // 23:30:00
+
+  // 월~목 (1~4) + 마감 전이면 오늘 마감까지
+  if (day >= 1 && day <= 4 && cur < close) {
+    return { kind: "deadline", seconds: close - cur, day };
+  }
+
+  // 다음 월요일 00:00 까지 — 요일별 남은 일수 계산
+  // 월 마감 후: 다음 월요일(6일 뒤), 화 마감 후: 다음 월(5일 뒤), ... 일요일: 1일 뒤
+  let daysToNextMon;
+  if (day === 0) daysToNextMon = 1;                  // 일
+  else if (day >= 1 && day <= 4) daysToNextMon = 7 - day; // 월(마감후)~목(마감후) → 다음주 월
+  else daysToNextMon = 8 - day;                      // 금=3, 토=2
+  // (월 마감 후를 day>=1 && cur>=close 로도 구분하지만 결과적으론 위 식이 맞음)
+  const secsToMidnight = (24 * 3600) - cur;
+  const seconds = secsToMidnight + (daysToNextMon - 1) * 24 * 3600;
+  return { kind: "next-open", seconds, day };
+}
+
+function formatCountdown(totalSec) {
+  if (totalSec <= 0) return "00:00:00";
+  const days = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (days > 0) return `${days}일 ${pad2(h)}:${pad2(m)}:${pad2(s)}`;
+  return `${pad2(h)}:${pad2(m)}:${pad2(s)}`;
+}
+
+// 카운트다운 DOM 갱신 (#siegeCountdown 요소가 있는 페이지에서만 동작)
+function tickSiegeCountdown() {
+  const el = document.getElementById("siegeCountdown");
+  if (!el) return;
+  const c = getSiegeCountdown();
+  const labelMap = {
+    "deadline": "오늘 마감까지",
+    "next-open": "다음 신청 시작까지",
+  };
+  const label = labelMap[c.kind] || "";
+  const time = formatCountdown(Math.max(0, c.seconds));
+  // 1시간 이하면 위험 상태
+  const urgent = c.kind === "deadline" && c.seconds <= 3600;
+  el.classList.toggle("urgent", urgent);
+  el.classList.toggle("offday", c.kind === "next-open");
+  el.innerHTML = `<span class="cd-label">${label}</span><span class="cd-time">${time}</span>`;
+}
+
+// 페이지 로드 후 자동 시작 (1초 간격)
+document.addEventListener("DOMContentLoaded", () => {
+  tickSiegeCountdown();
+  setInterval(tickSiegeCountdown, 1000);
+});
+
 // ---- Service Worker 자동 등록 (모든 페이지) ----
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
