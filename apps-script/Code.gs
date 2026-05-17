@@ -1390,11 +1390,11 @@ function getArchivedSeason_(season, scope) {
 
 function proxyBarambookScore_(jobCode, hp, mp) {
   const validJobs = ['Warrior', 'Sheif', 'Magic', 'Hill'];
-  if (validJobs.indexOf(jobCode) < 0) return { ok: false, error: 'invalid job_code' };
+  if (validJobs.indexOf(jobCode) < 0) return { ok: false, error: 'invalid job_code: ' + jobCode };
   const hpN = parseInt(hp, 10);
   const mpN = parseInt(mp, 10);
   if (!isFinite(hpN) || !isFinite(mpN) || hpN < 0 || mpN < 0 || hpN > 5000000 || mpN > 5000000) {
-    return { ok: false, error: 'invalid hp/mp range' };
+    return { ok: false, error: 'invalid hp/mp range: ' + hp + '/' + mp };
   }
   // 캐시 (같은 입력 1분 이내 재호출 방지)
   const cacheKey = 'score:' + jobCode + ':' + hpN + ':' + mpN;
@@ -1403,17 +1403,40 @@ function proxyBarambookScore_(jobCode, hp, mp) {
     const hit = cache.get(cacheKey);
     if (hit) return JSON.parse(hit);
   } catch (_) {}
+  const url = 'https://barambook.com/api/score?job_code=' + encodeURIComponent(jobCode) +
+              '&hp=' + hpN + '&mp=' + mpN;
   try {
-    const url = 'https://barambook.com/api/score?job_code=' + encodeURIComponent(jobCode) +
-                '&hp=' + hpN + '&mp=' + mpN;
-    const res = UrlFetchApp.fetch(url, { method: 'get', muteHttpExceptions: true });
-    if (res.getResponseCode() !== 200) return { ok: false, error: 'upstream ' + res.getResponseCode() };
-    const data = JSON.parse(res.getContentText());
-    const out = { ok: true, score: data.score || '0.00', jobCode, hp: hpN, mp: mpN };
+    const res = UrlFetchApp.fetch(url, {
+      method: 'get',
+      muteHttpExceptions: true,
+      followRedirects: true,
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+      },
+    });
+    const code = res.getResponseCode();
+    const body = res.getContentText() || '';
+    if (code !== 200) {
+      return { ok: false, error: 'upstream HTTP ' + code + ': ' + body.slice(0, 120) };
+    }
+    let data;
+    try { data = JSON.parse(body); }
+    catch (e) {
+      return { ok: false, error: 'JSON parse fail: ' + body.slice(0, 120) };
+    }
+    if (!data || (data.ok === false)) {
+      return { ok: false, error: 'upstream ok=false: ' + body.slice(0, 120) };
+    }
+    if (!data.score) {
+      return { ok: false, error: 'no score field: ' + body.slice(0, 120) };
+    }
+    const out = { ok: true, score: data.score, jobCode, hp: hpN, mp: mpN };
     try { CacheService.getScriptCache().put(cacheKey, JSON.stringify(out), 60); } catch (_) {}
     return out;
   } catch (err) {
-    return { ok: false, error: safeErr_(err) };
+    // safeErr_ 대신 실제 메시지 노출 (디버그용)
+    return { ok: false, error: 'fetch exception: ' + (err && err.message || err) };
   }
 }
 
