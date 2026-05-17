@@ -93,6 +93,17 @@ async function apiHallOfFame(scope, period) {
   } catch { return null; }
 }
 
+async function apiCastleHistory(days) {
+  try {
+    const res = await fetch(`${getEndpoint()}?action=castleLordHistory&days=${days || 90}`);
+    if (!res.ok) return null;
+    const d = await res.json();
+    if (!d.ok) return null;
+    writeCache("castle_history", d.history || []);
+    return d.history || [];
+  } catch { return null; }
+}
+
 function renderCastleLords(lords) {
   const castles = ["주작성", "현무성", "청룡성", "백호성"];
   castles.forEach((c) => {
@@ -136,6 +147,61 @@ function renderParticipating(guilds, guildStats) {
       ${s.total > 0 ? `<span class="participating-pct">${s.pct}%</span>` : ""}
     </a>`;
   }).join("");
+}
+
+// ---- 성주 이력 ----
+
+function renderCastleHistory(history) {
+  const body = $("#castleHistoryBody");
+  if (!body) return;
+  if (!history || !history.length) {
+    body.innerHTML = `<div class="hint">최근 변동 기록이 없습니다.</div>`;
+    return;
+  }
+  const icon = { "주작성": "🔴", "현무성": "🔵", "청룡성": "🟢", "백호성": "⚪" };
+  // 성별 그룹
+  const byCastle = new Map();
+  ["주작성","현무성","청룡성","백호성"].forEach((c) => byCastle.set(c, []));
+  history.forEach((h) => {
+    if (byCastle.has(h.castle)) byCastle.get(h.castle).push(h);
+  });
+  body.innerHTML = `
+    <div class="castle-history-grid">
+      ${["주작성","현무성","청룡성","백호성"].map((c) => {
+        const rows = byCastle.get(c).slice(0, 6);
+        const list = rows.length
+          ? rows.map((r, i) => `
+              <li class="${i === 0 ? "current" : ""}">
+                <span class="ch-date">${escapeHtml((r.changedAt || "").slice(5, 10))}</span>
+                <span class="ch-guild">${escapeHtml(r.guild || "-")}</span>
+              </li>`).join("")
+          : `<li class="empty">기록 없음</li>`;
+        return `<div class="ch-column">
+          <div class="ch-castle-title">${icon[c]} ${c}</div>
+          <ol class="ch-list">${list}</ol>
+        </div>`;
+      }).join("")}
+    </div>`;
+}
+
+async function loadCastleHistory() {
+  const cached = readCache("castle_history");
+  if (cached) renderCastleHistory(cached);
+  const fresh = await apiCastleHistory(180);
+  if (fresh !== null) renderCastleHistory(fresh);
+}
+
+// 펼치는 순간 lazy 로드
+function setupCastleHistory() {
+  const wrap = $("#castleHistoryWrap");
+  if (!wrap) return;
+  let loaded = false;
+  wrap.addEventListener("toggle", () => {
+    if (wrap.open && !loaded) {
+      loaded = true;
+      loadCastleHistory();
+    }
+  });
 }
 
 // ---- 명예의 전당 ----
@@ -443,6 +509,7 @@ async function init() {
 
   setupHallOfFameTabs();
   loadHallOfFame();
+  setupCastleHistory();
 
   // 1) 캐시 즉시 표시 (있으면) — SW 는 shared.js 가 자동 등록
   const cMembers = readCache("members") || [];

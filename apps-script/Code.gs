@@ -29,6 +29,9 @@ const HEADERS = ['성', '닉네임', '점수', '시간(KST)', '비고', '갱신�
 const MEMBER_SHEET = '문파원';
 const MEMBER_HEADERS = ['닉네임', '문파', '계', '비고/직책', '추가일(KST)'];
 
+const CASTLE_HISTORY_SHEET = '성주이력';
+const CASTLE_HISTORY_HEADERS = ['변경일(KST)', '성', '문파', '변경한관리자'];
+
 // ========================================
 // 보안 헬퍼
 // ========================================
@@ -371,17 +374,83 @@ function setCastleLord_(body) {
   if (['주작성','현무성','청룡성','백호성'].indexOf(castle) < 0) {
     return { ok: false, error: '유효하지 않은 성' };
   }
+  if (guild.length > 32) return { ok: false, error: '문파명 너무 김' };
+
   const lords = getCastleLords_();
-  lords[castle] = guild
-    ? {
-        guild,
-        updatedAt: Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm'),
-      }
-    : null;
+  const prevGuild = (lords[castle] && lords[castle].guild) || '';
+  const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm');
+  lords[castle] = guild ? { guild, updatedAt: now } : null;
   PropertiesService.getScriptProperties().setProperty('CASTLE_LORDS', JSON.stringify(lords));
+
+  // 이력 시트에 변경 기록 (실제 값이 바뀐 경우만)
+  if (prevGuild !== guild) {
+    try {
+      const a = authenticate_(body);
+      appendCastleHistory_(castle, guild, (a && a.username) || '');
+    } catch (e) { console.log('이력 기록 실패: ' + e); }
+  }
+
   invalidateBootstrap_();
   notifyDiscordCastleChange_(castle, guild);
   return { ok: true };
+}
+
+// ====================================================
+// 성주 이력 시트
+// ====================================================
+
+function getCastleHistorySheet_() {
+  const ss = SPREADSHEET_ID
+    ? SpreadsheetApp.openById(SPREADSHEET_ID)
+    : SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) throw new Error('스프레드시트 연결 실패');
+  let sh = ss.getSheetByName(CASTLE_HISTORY_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(CASTLE_HISTORY_SHEET);
+    sh.appendRow(CASTLE_HISTORY_HEADERS);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, CASTLE_HISTORY_HEADERS.length).setFontWeight('bold');
+  }
+  const firstRow = sh.getRange(1, 1, 1, CASTLE_HISTORY_HEADERS.length).getValues()[0];
+  if (firstRow.join('|') !== CASTLE_HISTORY_HEADERS.join('|')) {
+    sh.getRange(1, 1, 1, CASTLE_HISTORY_HEADERS.length).setValues([CASTLE_HISTORY_HEADERS]);
+    sh.setFrozenRows(1);
+  }
+  // A 컬럼(시간) 텍스트로 고정
+  sh.getRange('A2:A').setNumberFormat('@');
+  return sh;
+}
+
+function appendCastleHistory_(castle, guild, actor) {
+  const sh = getCastleHistorySheet_();
+  const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm');
+  sh.appendRow([
+    safeCell_(now),
+    safeCell_(castle),
+    safeCell_(guild || '(미점령)'),
+    safeCell_(actor || '?'),
+  ]);
+}
+
+// 최근 N일 이력 반환 (기본 90일)
+function listCastleHistory_(params) {
+  const days = Math.max(1, Math.min(365, parseInt((params && params.days) || '90', 10) || 90));
+  const cutoff = new Date(Date.now() - days * 24 * 3600 * 1000);
+  const cutoffStr = Utilities.formatDate(cutoff, 'Asia/Seoul', 'yyyy-MM-dd HH:mm');
+  const sh = getCastleHistorySheet_();
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  const vals = sh.getRange(2, 1, last - 1, CASTLE_HISTORY_HEADERS.length).getValues();
+  return vals
+    .filter((r) => r[0] && r[1])
+    .map((r) => ({
+      changedAt: formatDateValue_(r[0]),
+      castle: String(r[1] || ''),
+      guild: String(r[2] || ''),
+      actor: String(r[3] || ''),
+    }))
+    .filter((x) => x.changedAt >= cutoffStr)
+    .sort((a, b) => b.changedAt.localeCompare(a.changedAt));
 }
 
 // ====================================================
@@ -447,6 +516,9 @@ function doGet(e) {
         scope: e.parameter.scope,
         limit: e.parameter.limit,
       }));
+    }
+    if (action === 'castleLordHistory') {
+      return jsonOut_({ ok: true, history: listCastleHistory_({ days: e.parameter.days }) });
     }
     return jsonOut_({ ok: false, error: 'unknown action' });
   } catch (err) {

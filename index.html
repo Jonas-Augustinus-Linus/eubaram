@@ -11,8 +11,8 @@
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon.svg">
   <link rel="preconnect" href="https://script.google.com" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=32" />
-  <link rel="stylesheet" href="landing.css?v=32" />
+  <link rel="stylesheet" href="styles.css?v=33" />
+  <link rel="stylesheet" href="landing.css?v=33" />
 </head>
 <body class="landing-body">
   <header class="landing-hero">
@@ -62,6 +62,12 @@
         <div class="castle-lord-cell" data-castle="청룡성"><div class="cl-castle">🟢 청룡성</div><div class="cl-lord" id="lord-청룡성">-</div></div>
         <div class="castle-lord-cell" data-castle="백호성"><div class="cl-castle">⚪ 백호성</div><div class="cl-lord" id="lord-백호성">-</div></div>
       </div>
+      <details class="castle-history" id="castleHistoryWrap">
+        <summary>🏰 최근 성주 변동 이력 보기</summary>
+        <div class="castle-history-body" id="castleHistoryBody">
+          <div class="hint">로딩 중…</div>
+        </div>
+      </details>
     </section>
 
     <section class="card hof-card" id="hofCard">
@@ -102,6 +108,9 @@
 
   <footer class="site-footer">
     <div class="footer-line">신청 가능: 월~목 00:00 ~ 23:30 (KST)</div>
+    <div class="footer-line">
+      <a href="guide.html">📜 공성 가이드</a>
+    </div>
     <div class="footer-line footer-powered">
       <span class="eu-stars-mini" aria-hidden="true">★ ★ ★</span>
       Powered by <strong>주술사연합회</strong>
@@ -112,7 +121,7 @@
     </div>
   </footer>
 
-  <script src="shared.js?v=32" defer></script>
-  <script src="landing.js?v=32" defer></script>
+  <script src="shared.js?v=33" defer></script>
+  <script src="landing.js?v=33" defer></script>
 </body>
 </html>

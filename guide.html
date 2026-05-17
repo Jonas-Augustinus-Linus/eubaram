@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#003399" />
+  <title>공성 가이드 · EU연합 통합시스템</title>
+  <meta name="description" content="바람의나라 클래식 옥좌공성 룰 / 단계별 점수 / 직업별 역할 / 체마 점수 계산기">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="styles.css?v=33" />
+  <link rel="stylesheet" href="guide.css?v=33" />
+  <link rel="preconnect" href="https://script.google.com" crossorigin>
+</head>
+<body class="guide-body">
+  <header class="site-header">
+    <div class="eu-flag-bar" aria-label="EU 연합 깃발">
+      <svg class="eu-flag-svg" viewBox="0 0 90 60" aria-hidden="true">
+        <rect width="90" height="60" fill="#003399"/>
+        <g fill="#FFCC00">
+          <g transform="translate(45,30) rotate(0) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(30) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(60) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(90) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(120) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(150) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(180) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(210) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(240) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(270) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(300) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+          <g transform="translate(45,30) rotate(330) translate(0,-15)"><polygon points="0,-3.5 0.82,-1.08 3.33,-1.08 1.31,0.41 2.06,2.83 0,1.35 -2.06,2.83 -1.31,0.41 -3.33,-1.08 -0.82,-1.08"/></g>
+        </g>
+      </svg>
+      <span class="eu-text">EU 연합</span>
+    </div>
+    <div class="brand">
+      <a href="index.html" class="back-link" aria-label="홈으로 돌아가기" title="홈">←</a>
+      <span class="brand-icon" aria-hidden="true">📜</span>
+      <h1>공성 가이드</h1>
+    </div>
+    <p class="guide-sub">바람의나라 클래식 · EU연합 운영 규칙</p>
+  </header>
+
+  <main class="guide-main">
+
+    <nav class="guide-toc">
+      <a href="#rules">⚔️ 공성 룰</a>
+      <a href="#missions">🎯 옥좌공성 흐름</a>
+      <a href="#classes">⚔️ 직업별 역할</a>
+      <a href="#calc">🧮 체마 점수 계산기</a>
+      <a href="#etiquette">🤝 연합 에티켓</a>
+      <a href="#faq">❓ FAQ</a>
+    </nav>
+
+    <section class="card" id="rules">
+      <h2>⚔️ 공성 룰 (EU연합 운영 기준)</h2>
+      <div class="rule-grid">
+        <div class="rule-cell"><div class="rule-key">🔴 월</div><div class="rule-val">주작성</div></div>
+        <div class="rule-cell"><div class="rule-key">🔵 화</div><div class="rule-val">현무성</div></div>
+        <div class="rule-cell"><div class="rule-key">🟢 수</div><div class="rule-val">청룡성</div></div>
+        <div class="rule-cell"><div class="rule-key">⚪ 목</div><div class="rule-val">백호성</div></div>
+      </div>
+      <ul class="rule-list">
+        <li>신청 가능 시간: <strong>월~목 00:00 ~ 23:30 (KST)</strong></li>
+        <li>같은 닉네임이 같은 날 같은 성에 다시 신청하면 <strong>"갱신"</strong> 으로 처리</li>
+        <li>다계정 보유자는 siege 페이지의 <strong>+ 다계정 추가 등록</strong> 으로 일괄 등록</li>
+        <li>점수 인증은 게임 스크린샷 OCR 자동 추출 또는 직접 입력</li>
+        <li>금~일은 신청 불가, 다음 월요일 00:00 부터 새 주차 시작</li>
+      </ul>
+    </section>
+
+    <section class="card" id="missions">
+      <h2>🎯 옥좌공성 흐름 (참고용)</h2>
+      <p class="hint">바람의나라 클래식의 <strong>옥좌공성</strong> 진행 단계 시각화. 본인 점수가 어느 단계에서 누적됐는지 흐름을 이해하면 전략에 도움.</p>
+      <div class="mission-bar" aria-hidden="true" id="missionBar"></div>
+      <div class="mission-list" id="missionList"></div>
+      <p class="hint">※ 각 단계 점수 분포는 일반 참고용. 정확한 룰은 운영진 공지 / <a href="https://baram.nexon.com/GameGuide/View/38" target="_blank" rel="noopener">넥슨 공식 가이드</a> 확인.</p>
+    </section>
+
+    <section class="card" id="classes">
+      <h2>⚔️ 직업별 공성 역할</h2>
+      <div class="class-grid">
+        <div class="class-card">
+          <div class="class-head"><span class="class-icon">🗡️</span><span class="class-name">전사</span></div>
+          <div class="class-role">탱커 / 격수</div>
+          <p>높은 체력으로 성문/봉인석 등 핵심 거점 사수. 격수 빌드는 단기흑수/혈투에서 활약.</p>
+        </div>
+        <div class="class-card">
+          <div class="class-head"><span class="class-icon">🥷</span><span class="class-name">도적</span></div>
+          <div class="class-role">올라운더 격수</div>
+          <p>은신/기동성으로 후위 침투 + 신수 단독 처치 가능. 솔플 점수 확보에 유리.</p>
+        </div>
+        <div class="class-card">
+          <div class="class-head"><span class="class-icon">🔥</span><span class="class-name">주술사</span></div>
+          <div class="class-role">딜 / 솔플 제왕</div>
+          <p>마력 기반 광역 딜. 봉인석/신수수호령 처리에 결정적. 가중치 점수 1위 다수.</p>
+        </div>
+        <div class="class-card">
+          <div class="class-head"><span class="class-icon">🌿</span><span class="class-name">도사</span></div>
+          <div class="class-role">지원 / 파티 필수</div>
+          <p>회복/버프로 파티 생존 보장. 본인 점수는 낮을 수 있으나 파티 전체 점수 견인.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="calc">
+      <h2>🧮 체마 점수 계산기</h2>
+      <p class="hint">공식: <code>(체력 × 1 + 마력 × 2) ÷ 1000</code></p>
+      <div class="calc-form">
+        <label class="field">
+          <span class="field-label">체력 (HP)</span>
+          <input type="number" id="calcHp" placeholder="예: 5000" min="0" max="999999" inputmode="numeric">
+        </label>
+        <label class="field">
+          <span class="field-label">마력 (MP)</span>
+          <input type="number" id="calcMp" placeholder="예: 1500" min="0" max="999999" inputmode="numeric">
+        </label>
+      </div>
+      <div class="calc-output">
+        <div class="calc-result">
+          <div class="calc-result-label">예상 공성 점수</div>
+          <div class="calc-result-value" id="calcResult">-</div>
+        </div>
+        <div class="calc-result accent">
+          <div class="calc-result-label">정예 참전 가중치 적용</div>
+          <div class="calc-result-value" id="calcResultWeighted">-</div>
+          <div class="calc-result-sub">⭕ × 1.30</div>
+        </div>
+      </div>
+      <p class="hint">실제 등록되는 점수는 게임 내 표기와 차이가 있을 수 있습니다. 참고용 추정치.</p>
+    </section>
+
+    <section class="card" id="etiquette">
+      <h2>🤝 연합 에티켓</h2>
+      <ul class="rule-list">
+        <li><strong>점수 인증 필수</strong>: 매주 신청 가능 요일에 자기 캐릭의 점수 등록</li>
+        <li><strong>정예 표시 정확히</strong>: ⭕ 참전 / ❌ 불참 / ⏳ 최대한 — 가중치에 직접 반영됨</li>
+        <li><strong>다계정 솔직히</strong>: 다계정 보유자는 모두 등록, 점수용병/참전용병은 비고에 명시</li>
+        <li><strong>문파장/부방장 존중</strong>: 문파 운영진의 결정에 우선 따름</li>
+        <li><strong>다른 문파 비방 금지</strong>: 연합 내 갈등은 문파장끼리 협의</li>
+      </ul>
+    </section>
+
+    <section class="card" id="faq">
+      <h2>❓ 자주 묻는 질문</h2>
+      <details>
+        <summary>점수가 잘못 등록됐어요</summary>
+        <p>같은 닉네임으로 같은 날 다시 신청하면 자동으로 "갱신" 처리됩니다. siege.html 에서 <strong>⟳ 갱신하기</strong> 버튼 사용.</p>
+      </details>
+      <details>
+        <summary>"등록된 문원이 아닙니다" 경고가 떠요</summary>
+        <p>문파장/부문파장이 명단에 등록해야 합니다. 본인 닉네임을 알려주세요.</p>
+      </details>
+      <details>
+        <summary>OCR 이 점수를 못 찾았어요</summary>
+        <p>"점수 영역 직접 선택" 버튼으로 숫자 부분만 드래그하면 정확도 올라갑니다. 그래도 안 되면 직접 입력하세요.</p>
+      </details>
+      <details>
+        <summary>다른 문파 사람도 등록할 수 있나요?</summary>
+        <p>아니요. 본인 소속 문파의 siege 페이지에서만 가능합니다. 홈에서 자기 문파를 선택해 주세요.</p>
+      </details>
+      <details>
+        <summary>모바일에서도 다 되나요?</summary>
+        <p>네. 카메라 촬영 → 즉시 OCR 가능. 사이트를 "홈 화면에 추가" 하면 앱처럼 사용 가능 (PWA).</p>
+      </details>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-line"><a href="index.html">← 홈으로</a> · <a href="siege.html">⚔️ 점수 인증</a></div>
+    <div class="footer-line footer-powered">
+      <span class="eu-stars-mini" aria-hidden="true">★ ★ ★</span>
+      Powered by <strong>주술사연합회</strong>
+      <span class="eu-stars-mini" aria-hidden="true">★ ★ ★</span>
+    </div>
+  </footer>
+
+  <script src="shared.js?v=33" defer></script>
+  <script src="guide.js?v=33" defer></script>
+</body>
+</html>

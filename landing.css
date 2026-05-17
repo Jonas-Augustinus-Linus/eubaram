@@ -567,6 +567,96 @@
 
 .cl-lord-family { font-size: 11px; color: var(--muted); font-weight: 500; margin-top: 3px; }
 
+/* ===== 성주 변동 이력 ===== */
+
+.castle-history {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.castle-history > summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-weight: 600;
+  list-style: none;
+  padding: 6px 8px;
+  border-radius: 8px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.castle-history > summary::-webkit-details-marker { display: none; }
+.castle-history > summary::before {
+  content: "▸ ";
+  display: inline-block;
+  transition: transform 0.15s;
+  transform: rotate(0);
+}
+.castle-history[open] > summary::before { transform: rotate(90deg); }
+.castle-history > summary:hover { background: var(--panel-2); color: var(--text); }
+
+.castle-history-body { margin-top: 10px; }
+
+.castle-history-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (min-width: 720px) {
+  .castle-history-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+.ch-column {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.ch-castle-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+}
+
+.ch-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ch-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 3px 0;
+  color: var(--text);
+}
+
+.ch-list li.empty { color: var(--muted); font-style: italic; }
+
+.ch-list li.current {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.ch-list li.current .ch-guild::after {
+  content: " ◄";
+  color: var(--accent);
+  font-size: 9px;
+  vertical-align: middle;
+}
+
+.ch-date { color: var(--muted); font-size: 11px; min-width: 38px; }
+.ch-guild { font-weight: 600; text-align: right; }
+
 .lord-guild { display: inline-block; }
 .lord-guild.in-alliance {
   color: var(--accent);
