@@ -529,6 +529,9 @@ function doGet(e) {
     if (action === 'seasonArchive') {
       return jsonOut_(getArchivedSeason_(e.parameter.season || '', e.parameter.scope || 'personal'));
     }
+    if (action === 'scoreCalc') {
+      return jsonOut_(proxyBarambookScore_(e.parameter.job_code || '', e.parameter.hp || '0', e.parameter.mp || '0'));
+    }
     return jsonOut_({ ok: false, error: 'unknown action' });
   } catch (err) {
     return jsonOut_({ ok: false, error: safeErr_(err) });
@@ -1379,6 +1382,41 @@ function getArchivedSeason_(season, scope) {
  *   archiveSeasonManual()           — 직전 분기 박제
  *   archiveSeasonManual(2026, 1)    — 2026-Q1 박제
  */
+// ====================================================
+// 공성 점수 계산 — barambook.com/api/score 프록시
+// CORS 우회용. 1분 캐시 + 입력 검증.
+// 직업 코드: Warrior(전사), Sheif(도적), Magic(주술사), Hill(도사)
+// ====================================================
+
+function proxyBarambookScore_(jobCode, hp, mp) {
+  const validJobs = ['Warrior', 'Sheif', 'Magic', 'Hill'];
+  if (validJobs.indexOf(jobCode) < 0) return { ok: false, error: 'invalid job_code' };
+  const hpN = parseInt(hp, 10);
+  const mpN = parseInt(mp, 10);
+  if (!isFinite(hpN) || !isFinite(mpN) || hpN < 0 || mpN < 0 || hpN > 5000000 || mpN > 5000000) {
+    return { ok: false, error: 'invalid hp/mp range' };
+  }
+  // 캐시 (같은 입력 1분 이내 재호출 방지)
+  const cacheKey = 'score:' + jobCode + ':' + hpN + ':' + mpN;
+  try {
+    const cache = CacheService.getScriptCache();
+    const hit = cache.get(cacheKey);
+    if (hit) return JSON.parse(hit);
+  } catch (_) {}
+  try {
+    const url = 'https://barambook.com/api/score?job_code=' + encodeURIComponent(jobCode) +
+                '&hp=' + hpN + '&mp=' + mpN;
+    const res = UrlFetchApp.fetch(url, { method: 'get', muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) return { ok: false, error: 'upstream ' + res.getResponseCode() };
+    const data = JSON.parse(res.getContentText());
+    const out = { ok: true, score: data.score || '0.00', jobCode, hp: hpN, mp: mpN };
+    try { CacheService.getScriptCache().put(cacheKey, JSON.stringify(out), 60); } catch (_) {}
+    return out;
+  } catch (err) {
+    return { ok: false, error: safeErr_(err) };
+  }
+}
+
 function archiveSeasonManual(year, q) {
   let y = year, qq = q;
   if (!y || !qq) {
