@@ -1,5 +1,5 @@
 /**
- * 주스터콜 공성신청 - Google Apps Script Backend
+ * EU연합 통합시스템 - Google Apps Script Backend
  *
  * 두 가지 방식 모두 지원:
  *  A) 바인딩 스크립트 (권장):
@@ -15,6 +15,11 @@
  *     - 액세스 권한: "모든 사용자"
  *     - 배포 → 권한 승인
  *  2. 발급된 웹앱 URL (...exec) 을 웹페이지 "엔드포인트 설정" 에 붙여넣기
+ *
+ * 최초 1회 관리자 초기화 (필수!):
+ *  - Apps Script 편집기에서 setupInitialAdmin() 한 번 실행 → 초기 admin 계정 생성
+ *  - 또는 Script Properties 에 ADMIN_ACCOUNTS JSON 직접 입력
+ *  - 기본 admin/1234 폴백은 보안상 제거됨. 초기화 안 하면 모든 admin 액션이 실패.
  */
 
 const SPREADSHEET_ID = ''; // 바인딩 스크립트는 빈 문자열로 두세요
@@ -25,22 +30,55 @@ const MEMBER_SHEET = '문파원';
 const MEMBER_HEADERS = ['닉네임', '문파', '계', '비고/직책', '추가일(KST)'];
 
 // ========================================
+// 보안 헬퍼
+// ========================================
+
+/**
+ * 시트 셀 값 sanitize — 수식 주입(=, +, -, @ 시작) 차단.
+ * Excel/Sheets 가 자동 평가하지 않도록 앞에 ' 를 붙임.
+ */
+function safeCell_(v) {
+  const s = String(v == null ? '' : v);
+  return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+}
+
+/**
+ * 에러 메시지 sanitize — 스택트레이스/내부 경로 노출 방지.
+ * 콘솔에는 상세 기록, 사용자에겐 일반화된 메시지만.
+ */
+function safeErr_(err) {
+  try { console.log(err && (err.stack || err.message) || err); } catch (_) {}
+  return '서버 처리 중 오류가 발생했습니다';
+}
+
+/**
+ * 간단한 rate limit (CacheService 기반).
+ * key 별로 limitN 회 / windowSec 초 초과 시 차단.
+ */
+function rateLimit_(key, limitN, windowSec) {
+  try {
+    const cache = CacheService.getScriptCache();
+    const cur = parseInt(cache.get(key) || '0', 10);
+    if (cur >= limitN) return false;
+    cache.put(key, String(cur + 1), windowSec);
+    return true;
+  } catch (_) { return true; } // 캐시 실패 시 통과 (가용성 우선)
+}
+
+// ========================================
 // 다중 관리자 계정 (전체 관리자 + 문파별 관리자)
 // 저장 형식 (PropertiesService 'ADMIN_ACCOUNTS'): { username: { password, scope } }
-//   - scope: 'all' (전체) 또는 문파명 (예: '주스터콜')
-//   - 기본 계정: admin / 1234 / scope=all
+//   - scope: 'all' (전체) 또는 계 이름 (예: '쿠데타계')
+//   - 기본 admin/1234 폴백은 제거됨 — setupInitialAdmin() 1회 실행 필요.
 // ========================================
 
 function getAccounts_() {
   const raw = PropertiesService.getScriptProperties().getProperty('ADMIN_ACCOUNTS');
-  if (!raw) return { admin: { password: '1234', scope: 'all' } };
+  if (!raw) return {};
   try {
-    const obj = JSON.parse(raw);
-    // 안전망: admin 계정이 사라지면 다시 생성
-    if (!obj.admin) obj.admin = { password: '1234', scope: 'all' };
-    return obj;
+    return JSON.parse(raw) || {};
   } catch (_) {
-    return { admin: { password: '1234', scope: 'all' } };
+    return {};
   }
 }
 
@@ -48,11 +86,29 @@ function saveAccounts_(accts) {
   PropertiesService.getScriptProperties().setProperty('ADMIN_ACCOUNTS', JSON.stringify(accts));
 }
 
+/**
+ * Apps Script 편집기에서 1회 수동 실행해서 초기 admin 생성.
+ * 실행 시점에 비번 입력 다이얼로그 → 12자 이상 + 영숫자 조합 권장.
+ * 실행 후 즉시 admin.html 에 로그인하고 비번 한번 더 변경 권장.
+ */
+function setupInitialAdmin() {
+  const accts = getAccounts_();
+  if (accts.admin) {
+    return 'admin 계정이 이미 존재합니다. 변경하려면 관리자 페이지에서 비밀번호 변경.';
+  }
+  // 임시 강력 비밀번호 자동 생성
+  const tmp = Utilities.getUuid().replace(/-/g, '').slice(0, 16);
+  accts.admin = { password: tmp, scope: 'all' };
+  saveAccounts_(accts);
+  return '초기 admin 계정 생성됨. 비밀번호: ' + tmp + ' — 즉시 로그인 후 변경하세요!';
+}
+
 // body 안의 {username, password} 를 검증하여 {ok, scope, username} 반환
 function authenticate_(body) {
   const u = ((body && body.username) || '').toString().trim();
   const pw = ((body && body.password) || '').toString();
   if (!u || !pw) return { ok: false };
+  if (u.length > 64 || pw.length > 128) return { ok: false };
   const accts = getAccounts_();
   for (const name in accts) {
     if (name.toLowerCase() === u.toLowerCase()) {
@@ -103,12 +159,8 @@ function authorize_(body, requiredGuild) {
   return { ok: true, auth: a };
 }
 
-// 하위 호환을 위한 checkAdmin_: 새 스타일(username/password) 또는 옛 스타일(password 만) 둘 다 수용
+// checkAdmin_: 명시적 username/password 만 허용 (옛 password-only 폴백 제거 — 보안)
 function checkAdmin_(body) {
-  // 옛 스타일: body.username 없이 password 만 - 기본 admin 으로 시도
-  if (body && !body.username && body.password) {
-    return authenticate_({ username: 'admin', password: body.password }).ok;
-  }
   return authenticate_(body).ok;
 }
 
@@ -257,9 +309,9 @@ function doGet(e) {
     if (action === 'castleLords') return jsonOut_({ ok: true, lords: getCastleLords_() });
     if (action === 'guidelines') return jsonOut_({ ok: true, text: getGuidelines_() });
     if (action === 'bootstrap') return jsonOut_(getBootstrap_());
-    return jsonOut_({ ok: false, error: 'unknown action: ' + action });
+    return jsonOut_({ ok: false, error: 'unknown action' });
   } catch (err) {
-    return jsonOut_({ ok: false, error: String(err) });
+    return jsonOut_({ ok: false, error: safeErr_(err) });
   }
 }
 
@@ -302,8 +354,19 @@ function doPost(e) {
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     const action = body.action || 'submit';
-    if (action === 'submit') return jsonOut_(submitEntry_(body));
-    if (action === 'ocr') return jsonOut_(ocrImage_(body));
+
+    // 익명 액션 (submit, ocr) 레이트 리밋 — 닉네임/이미지 길이로 단순 키 생성
+    if (action === 'submit') {
+      const key = 'rl:submit:' + (body.nickname || 'anon').toString().slice(0, 16);
+      if (!rateLimit_(key, 6, 60)) return jsonOut_({ ok: false, error: '신청 빈도가 너무 잦습니다. 1분 후 다시 시도해 주세요.' });
+      return jsonOut_(submitEntry_(body));
+    }
+    if (action === 'ocr') {
+      const key = 'rl:ocr:' + (body.mime || 'x').toString().slice(0, 16);
+      if (!rateLimit_(key, 30, 60)) return jsonOut_({ ok: false, error: 'OCR 빈도가 너무 잦습니다.' });
+      return jsonOut_(ocrImage_(body));
+    }
+
     if (action === 'members:list') return jsonOut_({ ok: true, members: listMembers_() });
     if (action === 'members:set') return jsonOut_(setMembers_(body));
     if (action === 'members:add') return jsonOut_(addMember_(body));
@@ -322,9 +385,9 @@ function doPost(e) {
     if (action === 'admin:accounts:remove') return jsonOut_(removeAccount_(body));
     if (action === 'castleLord:set') return jsonOut_(setCastleLord_(body));
     if (action === 'guidelines:set') return jsonOut_(setGuidelines_(body));
-    return jsonOut_({ ok: false, error: 'unknown action: ' + action });
+    return jsonOut_({ ok: false, error: 'unknown action' });
   } catch (err) {
-    return jsonOut_({ ok: false, error: String(err) });
+    return jsonOut_({ ok: false, error: safeErr_(err) });
   }
 }
 
@@ -374,63 +437,65 @@ function setMembers_(body) {
   const a = authenticate_(body);
   if (!a.ok) return { ok: false, error: 'unauthorized' };
   const rawList = Array.isArray(body.members) ? body.members : [];
+  if (rawList.length > 500) return { ok: false, error: '한 번에 최대 500명' };
   let replaceGuild = (body.replaceGuild || 'all').toString();
-  // 계 관리자는 자기 계 내 문파만 가능
-  const allowedGuilds = guildsForScope_(a.scope); // null = 전체
+  const allowedGuilds = guildsForScope_(a.scope);
   if (allowedGuilds !== null) {
-    // 입력 닉네임의 문파가 allowedGuilds 안에 들어가야 함
     rawList.forEach((raw) => {
       if (raw && typeof raw === 'object') {
         if (!raw.guild || allowedGuilds.indexOf(raw.guild) < 0) {
-          // 지정되지 않거나 허용 외이면 첫 번째 허용 문파로 강제 (안전망)
           raw.guild = allowedGuilds[0];
         }
       }
     });
-    // replaceGuild 가 허용 외면 'all' 의미는 사용자의 계 전체로 제한
     if (replaceGuild !== 'all' && allowedGuilds.indexOf(replaceGuild) < 0) {
       replaceGuild = 'all';
     }
   }
-  const sh = getMemberSheet_();
-  const last = sh.getLastRow();
-  // 기존 내용 - 'all' 이면 전부, 아니면 해당 문파만 삭제
-  if (last >= 2) {
-    if (replaceGuild === 'all') {
-      sh.getRange(2, 1, last - 1, MEMBER_HEADERS.length).clearContent();
-    } else {
-      const all = sh.getRange(2, 1, last - 1, MEMBER_HEADERS.length).getValues();
-      // 해당 문파에 속한 행 삭제 (뒤에서부터)
-      for (let i = all.length - 1; i >= 0; i--) {
-        if (String(all[i][1] || '').trim() === replaceGuild) {
-          sh.deleteRow(i + 2);
+
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(5000); } catch (_) { return { ok: false, error: '서버가 바쁩니다.' }; }
+  try {
+    const sh = getMemberSheet_();
+    const last = sh.getLastRow();
+    if (last >= 2) {
+      if (replaceGuild === 'all') {
+        sh.getRange(2, 1, last - 1, MEMBER_HEADERS.length).clearContent();
+      } else {
+        const all = sh.getRange(2, 1, last - 1, MEMBER_HEADERS.length).getValues();
+        for (let i = all.length - 1; i >= 0; i--) {
+          if (String(all[i][1] || '').trim() === replaceGuild) {
+            sh.deleteRow(i + 2);
+          }
         }
       }
     }
+    const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm');
+    const seen = new Set();
+    const rows = [];
+    rawList.forEach((raw) => {
+      const obj = typeof raw === 'string' ? { nickname: raw } : (raw || {});
+      const nick = String(obj.nickname || '').trim().slice(0, 32);
+      if (!nick) return;
+      const key = nick.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      rows.push([
+        safeCell_(nick),
+        safeCell_(String(obj.guild || '').trim().slice(0, 32)),
+        safeCell_(String(obj.family || '').trim().slice(0, 32)),
+        safeCell_(String(obj.role || '').trim().slice(0, 32)),
+        now,
+      ]);
+    });
+    if (rows.length) {
+      sh.getRange(sh.getLastRow() + 1, 1, rows.length, MEMBER_HEADERS.length).setValues(rows);
+    }
+    invalidateBootstrap_();
+    return { ok: true, count: rows.length };
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
   }
-  const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm');
-  const seen = new Set();
-  const rows = [];
-  rawList.forEach((raw) => {
-    const obj = typeof raw === 'string' ? { nickname: raw } : (raw || {});
-    const nick = String(obj.nickname || '').trim();
-    if (!nick) return;
-    const key = nick.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    rows.push([
-      nick,
-      String(obj.guild || '').trim(),
-      String(obj.family || '').trim(),
-      String(obj.role || '').trim(),
-      now,
-    ]);
-  });
-  if (rows.length) {
-    sh.getRange(sh.getLastRow() + 1, 1, rows.length, MEMBER_HEADERS.length).setValues(rows);
-  }
-  invalidateBootstrap_();
-  return { ok: true, count: rows.length };
 }
 
 function addMember_(body) {
@@ -438,7 +503,7 @@ function addMember_(body) {
   if (!a.ok) return { ok: false, error: 'unauthorized' };
   const nickname = (body.nickname || '').toString().trim();
   if (!nickname) return { ok: false, error: '닉네임 누락' };
-  // 계 관리자: 추가하려는 문파가 자기 계 안에 있어야
+  if (nickname.length > 32) return { ok: false, error: '닉네임이 너무 깁니다 (최대 32자)' };
   const allowedGuilds = guildsForScope_(a.scope);
   if (allowedGuilds !== null) {
     const g = (body.guild || '').toString().trim();
@@ -447,25 +512,32 @@ function addMember_(body) {
     }
     body.family = a.scope;
   }
-  const sh = getMemberSheet_();
-  const last = sh.getLastRow();
-  if (last >= 2) {
-    const existing = sh.getRange(2, 1, last - 1, 1).getValues().flat()
-      .map((s) => String(s || '').trim().toLowerCase());
-    if (existing.includes(nickname.toLowerCase())) {
-      return { ok: false, error: '이미 등록된 문원' };
+
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(5000); } catch (_) { return { ok: false, error: '서버가 바쁩니다.' }; }
+  try {
+    const sh = getMemberSheet_();
+    const last = sh.getLastRow();
+    if (last >= 2) {
+      const existing = sh.getRange(2, 1, last - 1, 1).getValues().flat()
+        .map((s) => String(s || '').trim().toLowerCase());
+      if (existing.includes(nickname.toLowerCase())) {
+        return { ok: false, error: '이미 등록된 문원' };
+      }
     }
+    const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm');
+    sh.appendRow([
+      safeCell_(nickname),
+      safeCell_(String(body.guild || '').trim().slice(0, 32)),
+      safeCell_(String(body.family || '').trim().slice(0, 32)),
+      safeCell_(String(body.role || '').trim().slice(0, 32)),
+      now,
+    ]);
+    invalidateBootstrap_();
+    return { ok: true };
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
   }
-  const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm');
-  sh.appendRow([
-    nickname,
-    String(body.guild || '').trim(),
-    String(body.family || '').trim(),
-    String(body.role || '').trim(),
-    now,
-  ]);
-  invalidateBootstrap_();
-  return { ok: true };
 }
 
 function removeMember_(body) {
@@ -731,7 +803,16 @@ function setupOcrPermissions() {
  *
  *   * 무료 한도: 월 1,000 호출. 초과 시 $1.50 / 1,000건.
  */
+// 이미지 base64 최대 크기 (~7MB base64 = ~5MB raw). Apps Script payload 한도 + Vision API 안전 마진.
+const OCR_MAX_B64_BYTES = 7 * 1024 * 1024;
+
 function ocrImage_(body) {
+  // 입력 크기 검증
+  const raw = ((body && body.image) || '').toString();
+  if (!raw) return { ok: false, error: '이미지 없음' };
+  if (raw.length > OCR_MAX_B64_BYTES) {
+    return { ok: false, error: '이미지가 너무 큽니다 (최대 5MB). 압축 후 다시 시도해 주세요.' };
+  }
   const visionKey = PropertiesService.getScriptProperties().getProperty('VISION_API_KEY');
   if (visionKey) return visionOcr_(body, visionKey);
   return driveOcr_(body);
@@ -841,54 +922,71 @@ function submitEntry_(body) {
   const score = (body.score || '').toString().trim();
   const castle = (body.castle || '').toString().trim();
   const dateKst = (body.dateKst || '').toString().trim();
-  const note = (body.note || '').toString().trim();
+  let note = (body.note || '').toString().trim();
   const elite = (body.elite || '').toString().trim();
   const guild = (body.guild || '').toString().trim();
   const wantUpdate = !!body.update;
 
+  // --- 입력 검증 (서버측 화이트리스트, 클라이언트 maxlength 로는 부족) ---
   if (!nickname) return { ok: false, error: '닉네임 누락' };
+  if (nickname.length > 32) return { ok: false, error: '닉네임이 너무 깁니다 (최대 32자)' };
   if (!score) return { ok: false, error: '점수 누락' };
+  if (!/^-?\d{1,5}(\.\d{1,3})?$/.test(score)) return { ok: false, error: '점수 형식 오류 (예: 2818.23)' };
   if (!castle) return { ok: false, error: '성 누락' };
+  if (['주작성','현무성','청룡성','백호성'].indexOf(castle) < 0) return { ok: false, error: '유효하지 않은 성' };
+  if (dateKst && !/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}/.test(dateKst)) return { ok: false, error: '시간 형식 오류' };
+  if (elite && ['O','X','최대한 참여'].indexOf(elite) < 0) return { ok: false, error: '정예 값 오류' };
+  if (guild.length > 32) return { ok: false, error: '문파명이 너무 깁니다' };
+  if (note.length > 200) note = note.slice(0, 200);
 
-  const sh = getSheet_();
-  const last = sh.getLastRow();
-  const todayPrefix = (dateKst || '').slice(0, 10);
+  // --- 동시성 락 (중복 검색 ~ append 사이 race 차단) ---
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(5000);
+  } catch (_) {
+    return { ok: false, error: '서버가 바쁩니다. 잠시 후 다시 시도해 주세요.' };
+  }
+  try {
+    const sh = getSheet_();
+    const last = sh.getLastRow();
+    const todayPrefix = (dateKst || '').slice(0, 10);
 
-  // 중복 검색: 같은 닉네임 + 성 + 같은 날(YYYY-MM-DD)
-  let dupRow = -1;
-  if (last >= 2 && todayPrefix) {
-    const values = sh.getRange(2, 1, last - 1, HEADERS.length).getValues();
-    for (let i = 0; i < values.length; i++) {
-      const r = values[i];
-      if (
-        String(r[0] || '').trim() === castle &&
-        String(r[1] || '').trim().toLowerCase() === nickname.toLowerCase() &&
-        String(r[3] || '').slice(0, 10) === todayPrefix
-      ) {
-        dupRow = i + 2;
-        break;
+    // 중복 검색: 같은 닉네임 + 성 + 같은 날(YYYY-MM-DD)
+    let dupRow = -1;
+    if (last >= 2 && todayPrefix) {
+      const values = sh.getRange(2, 1, last - 1, HEADERS.length).getValues();
+      for (let i = 0; i < values.length; i++) {
+        const r = values[i];
+        if (
+          String(r[0] || '').trim() === castle &&
+          String(r[1] || '').trim().toLowerCase() === nickname.toLowerCase() &&
+          String(r[3] || '').slice(0, 10) === todayPrefix
+        ) {
+          dupRow = i + 2;
+          break;
+        }
       }
     }
-  }
 
-  if (wantUpdate) {
-    // 갱신 의도: 기존 신청이 있어야만 갱신 가능
-    if (dupRow <= 0) {
-      return { ok: false, error: 'not_found', notFound: true };
+    if (wantUpdate) {
+      if (dupRow <= 0) return { ok: false, error: 'not_found', notFound: true };
+      sh.getRange(dupRow, 1, 1, HEADERS.length).setValues([[
+        safeCell_(castle), safeCell_(nickname), safeCell_(score), safeCell_(dateKst),
+        safeCell_(note), '갱신', safeCell_(elite), safeCell_(guild),
+      ]]);
+      invalidateBootstrap_();
+      return { ok: true, updated: true };
     }
-    sh.getRange(dupRow, 1, 1, HEADERS.length).setValues([[
-      castle, nickname, score, dateKst, note, '갱신', elite, guild,
-    ]]);
+
+    if (dupRow > 0) return { ok: false, error: 'duplicate', duplicate: true };
+
+    sh.appendRow([
+      safeCell_(castle), safeCell_(nickname), safeCell_(score), safeCell_(dateKst),
+      safeCell_(note), '', safeCell_(elite), safeCell_(guild),
+    ]);
     invalidateBootstrap_();
-    return { ok: true, updated: true };
+    return { ok: true, updated: false };
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
   }
-
-  // 신청 의도: 중복이면 에러
-  if (dupRow > 0) {
-    return { ok: false, error: 'duplicate', duplicate: true };
-  }
-
-  sh.appendRow([castle, nickname, score, dateKst, note, '', elite, guild]);
-  invalidateBootstrap_();
-  return { ok: true, updated: false };
 }

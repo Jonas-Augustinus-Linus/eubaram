@@ -1,11 +1,8 @@
-// 주스터콜 공성신청 - Frontend Logic
+// EU연합 공성신청 - Siege 페이지 로직
 // =====================================
-
-const ENDPOINT_KEY = "juseter_endpoint";
-// 프로덕션 백엔드 (Apps Script Web App). 일반 사용자는 이 값 그대로 사용.
-// localStorage 에 다른 값이 있으면 그것이 우선 (개발/테스트용).
-const DEFAULT_ENDPOINT = "https://script.google.com/macros/s/AKfycbwuCTkMYPDZoQIXe63N5aFf0W-ViJeo8LX4kfspdmt9qporNmgJPWdFAH6GUy2JyN2x5A/exec";
-const KST_OFFSET_MIN = 9 * 60;
+// (ALLIANCE / $ / $$ / escapeHtml / pad2 / nowKst / todayKstString / getEndpoint /
+//  ensureTesseractLoaded / resizeImage / preprocessForOcr / blobToBase64 /
+//  readCache / writeCache 는 shared.js 에서 제공)
 
 // 현재 페이지의 문파 컨텍스트 (URL param ?guild=...)
 const CURRENT_GUILD = (() => {
@@ -26,12 +23,7 @@ const CASTLE_BY_DAY = {
 
 const DAY_LABEL = ["일", "월", "화", "수", "목", "금", "토"];
 
-// ----- Helpers -----
-
-function nowKst() {
-  const utc = Date.now();
-  return new Date(utc + KST_OFFSET_MIN * 60 * 1000);
-}
+// ----- Helpers (page-local) -----
 
 function getCastleContext(date) {
   const d = date || nowKst();
@@ -62,35 +54,17 @@ function getCastleContext(date) {
   };
 }
 
-function pad2(n) { return String(n).padStart(2, "0"); }
-
 function formatKstDateTime(date) {
   const d = date || nowKst();
   return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
 }
 
-function getEndpoint() {
-  return localStorage.getItem(ENDPOINT_KEY) || DEFAULT_ENDPOINT;
-}
-
 function setEndpoint(url) {
-  if (url) localStorage.setItem(ENDPOINT_KEY, url);
-  else localStorage.removeItem(ENDPOINT_KEY);
+  if (url) localStorage.setItem("juseter_endpoint", url);
+  else localStorage.removeItem("juseter_endpoint");
 }
 
 // ----- API -----
-
-const CACHE_PREFIX = "eubaram_cache_";
-function readCache(key) {
-  try {
-    const raw = localStorage.getItem(CACHE_PREFIX + key);
-    if (!raw) return null;
-    return JSON.parse(raw).data;
-  } catch { return null; }
-}
-function writeCache(key, data) {
-  try { localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ ts: Date.now(), data })); } catch {}
-}
 
 async function apiList() {
   const ep = getEndpoint();
@@ -133,25 +107,8 @@ async function apiSubmit(payload) {
   return data;
 }
 
-// ----- OCR (Tesseract 지연 로드) -----
-
-let _tesseractLoadingPromise = null;
-
-function ensureTesseractLoaded() {
-  if (typeof Tesseract !== "undefined") return Promise.resolve();
-  if (_tesseractLoadingPromise) return _tesseractLoadingPromise;
-  _tesseractLoadingPromise = new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js";
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Tesseract.js 로드 실패"));
-    document.head.appendChild(s);
-  });
-  return _tesseractLoadingPromise;
-}
-
-
+// ----- OCR (ensureTesseractLoaded / resizeImage / preprocessForOcr /
+//         blobToBase64 는 shared.js) -----
 
 // 게임 스크린샷에는 "등록한 공성전 참가점수 : 2818.23" 형태로 표기됨.
 // 이 라벨 뒤의 숫자를 1순위 후보로 잡고, 나머지는 보조 후보로 추가.
@@ -197,88 +154,6 @@ function extractScoreCandidates(rawText) {
     primary,
     list: primary ? [primary, ...sorted] : sorted,
   };
-}
-
-// 이미지 전처리: 긴 변 기준 maxDim 으로 리사이즈, JPEG 로 인코딩
-async function resizeImage(file, maxDim = 1600, quality = 0.85) {
-  const dataUrl = await new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = reject;
-    fr.readAsDataURL(file);
-  });
-  const img = await new Promise((resolve, reject) => {
-    const im = new Image();
-    im.onload = () => resolve(im);
-    im.onerror = reject;
-    im.src = dataUrl;
-  });
-  const ratio = Math.min(1, maxDim / Math.max(img.width, img.height));
-  const w = Math.round(img.width * ratio);
-  const h = Math.round(img.height * ratio);
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0, w, h);
-  const out = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
-  return out;
-}
-
-// OCR 용 전처리: 스케일업 + 그레이스케일 + 대비 향상.
-// 게임 UI 같은 어두운 배경/장식 폰트도 더 잘 인식되도록.
-async function preprocessForOcr(file, targetLong = 2400, contrast = 1.6) {
-  const dataUrl = await new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = reject;
-    fr.readAsDataURL(file);
-  });
-  const img = await new Promise((resolve, reject) => {
-    const im = new Image();
-    im.onload = () => resolve(im);
-    im.onerror = reject;
-    im.src = dataUrl;
-  });
-  // 스케일: 긴 변을 targetLong 로. 너무 큰 이미지는 줄이지 않고 그대로.
-  const longSide = Math.max(img.width, img.height);
-  const scale = longSide < targetLong ? targetLong / longSide : 1;
-  const w = Math.round(img.width * scale);
-  const h = Math.round(img.height * scale);
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d");
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(img, 0, 0, w, h);
-
-  // 그레이스케일 + 대비 향상
-  const imgData = ctx.getImageData(0, 0, w, h);
-  const px = imgData.data;
-  for (let i = 0; i < px.length; i += 4) {
-    const gray = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
-    let v = (gray - 128) * contrast + 128;
-    if (v < 0) v = 0;
-    else if (v > 255) v = 255;
-    px[i] = px[i + 1] = px[i + 2] = v;
-  }
-  ctx.putImageData(imgData, 0, 0);
-
-  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
-}
-
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => {
-      const s = fr.result || "";
-      const i = s.indexOf(",");
-      resolve(i >= 0 ? s.slice(i + 1) : s);
-    };
-    fr.onerror = reject;
-    fr.readAsDataURL(blob);
-  });
 }
 
 // 서버 OCR (Apps Script → Google Vision API 또는 Drive OCR)
@@ -345,8 +220,6 @@ async function runOcr(file) {
 
 // ----- DOM helpers -----
 
-function $(sel) { return document.querySelector(sel); }
-function $$(sel) { return Array.from(document.querySelectorAll(sel)); }
 
 function setMessage(text, kind) {
   const el = $("#formMessage");
@@ -471,10 +344,7 @@ function showMemberWarning(nickname) {
   dlg.showModal();
 }
 
-function todayKstString() {
-  const d = nowKst();
-  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
-}
+// todayKstString — shared.js
 
 function filterEntries(entries, mode) {
   let base = entries;
@@ -550,12 +420,6 @@ function renderEntries() {
       <td class="note-cell">${note}</td>
     </tr>`;
   }).join("");
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]));
 }
 
 async function refreshEntries() {
@@ -1318,10 +1182,7 @@ function init() {
     }
   });
 
-  // SW 등록
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
-  }
+  // SW 는 shared.js 가 자동 등록
 
   // 캐시 즉시 표시 (있으면) — 백그라운드로 최신 데이터 fetch
   const cEntries = readCache("entries");

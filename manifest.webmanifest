@@ -1,0 +1,20 @@
+{
+  "name": "EU연합 통합시스템",
+  "short_name": "EU연합",
+  "description": "바람의나라 클래식 EU연합 공성 점수 인증 및 통계",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0e1117",
+  "theme_color": "#003399",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "공성 신청", "short_name": "신청", "url": "./siege.html", "description": "공성 점수 인증 페이지" },
+    { "name": "관리자 대시보드", "short_name": "관리자", "url": "./admin.html", "description": "관리자 통계/문원 관리" }
+  ]
+}

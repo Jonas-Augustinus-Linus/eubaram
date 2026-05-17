@@ -1,21 +1,28 @@
 // EU연합 통합시스템 - Service Worker
-// 같은 출처 자산은 stale-while-revalidate, HTML 은 network-first.
+// 같은 출처 자산은 stale-while-revalidate, HTML 은 network-first (3초 타임아웃).
 // 외부 도메인 (Apps Script, jsdelivr 등) 은 통과 (캐시하지 않음).
 
-const CACHE_NAME = "eubaram-static-v1";
+// CACHE_NAME 은 빌드 버전(?v=N) 과 동기화 — activate 에서 옛 캐시 통째 삭제.
+const CACHE_NAME = "eubaram-static-v31";
 
 const PRECACHE = [
   "./",
   "./index.html",
   "./siege.html",
   "./admin.html",
-  "./styles.css",
-  "./landing.css",
-  "./admin.css",
-  "./app.js",
-  "./landing.js",
-  "./admin.js",
+  "./styles.css?v=31",
+  "./landing.css?v=31",
+  "./admin.css?v=31",
+  "./shared.js?v=31",
+  "./app.js?v=31",
+  "./landing.js?v=31",
+  "./admin.js?v=31",
+  "./manifest.webmanifest",
+  "./icon.svg",
+  "./icon-maskable.svg",
 ];
+
+const HTML_TIMEOUT_MS = 3000;
 
 self.addEventListener("install", (e) => {
   e.waitUntil((async () => {
@@ -43,6 +50,17 @@ function isHtmlRequest(req, url) {
   return accept.includes("text/html");
 }
 
+// 타임아웃 fetch — 느린 네트워크에서 캐시 폴백 가속
+function fetchWithTimeout(req, ms) {
+  return new Promise((resolve, reject) => {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => { ctrl.abort(); reject(new Error("timeout")); }, ms);
+    fetch(req, { signal: ctrl.signal })
+      .then((res) => { clearTimeout(tid); resolve(res); })
+      .catch((err) => { clearTimeout(tid); reject(err); });
+  });
+}
+
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
@@ -53,11 +71,11 @@ self.addEventListener("fetch", (e) => {
   // 같은 출처만 가로채기 (Apps Script, CDN, Tesseract 등 외부는 통과)
   if (url.origin !== self.location.origin) return;
 
-  // HTML 은 network-first (콘텐츠 변경 즉시 반영)
+  // HTML 은 network-first (콘텐츠 변경 즉시 반영) + 3초 타임아웃
   if (isHtmlRequest(req, url)) {
     e.respondWith((async () => {
       try {
-        const fresh = await fetch(req);
+        const fresh = await fetchWithTimeout(req, HTML_TIMEOUT_MS);
         if (fresh && fresh.ok) {
           const cache = await caches.open(CACHE_NAME);
           cache.put(req, fresh.clone());

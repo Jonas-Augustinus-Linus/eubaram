@@ -1,46 +1,13 @@
 // =================================================
 // EU연합 통합시스템 - 랜딩 페이지 로직
+// (ALLIANCE / escapeHtml / pad2 / nowKst / todayKstString / $ / $$ / getEndpoint /
+//  readCache / writeCache 등은 shared.js 에서 제공)
 // =================================================
-
-const DEFAULT_ENDPOINT = "https://script.google.com/macros/s/AKfycbwuCTkMYPDZoQIXe63N5aFf0W-ViJeo8LX4kfspdmt9qporNmgJPWdFAH6GUy2JyN2x5A/exec";
-const KST_OFFSET_MIN = 9 * 60;
-
-const ALLIANCE = {
-  name: "EU 연합",
-  leader: { nickname: "스왚", guild: "쿠데타" },
-  families: [
-    { name: "쿠데타계",       guilds: ["쿠데타", "혁명", "반란", "난"] },
-    { name: "주술사연합회계",  guilds: ["주술사연합회", "주스터콜", "주연", "주술사연맹", "주토피아", "주막왈숙네"] },
-    { name: "로켓단계",       guilds: ["로켓단"] },
-    { name: "매화계",         guilds: ["매화"] },
-    { name: "신화계",         guilds: ["신화", "시"] },
-    { name: "청룡계",         guilds: ["청룡"] },
-    { name: "연가계",         guilds: ["월하", "연가", "연희"] },
-  ],
-};
 
 const CASTLE_BY_DAY = {
   1: "주작성", 2: "현무성", 3: "청룡성", 4: "백호성",
 };
 const DAY_LABEL = ["일", "월", "화", "수", "목", "금", "토"];
-
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => Array.from(document.querySelectorAll(s));
-
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]));
-}
-
-function pad2(n) { return String(n).padStart(2, "0"); }
-
-function nowKst() { return new Date(Date.now() + KST_OFFSET_MIN * 60 * 1000); }
-
-function todayKstString() {
-  const d = nowKst();
-  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth()+1)}-${pad2(d.getUTCDate())}`;
-}
 
 function getCastleContext() {
   const d = nowKst();
@@ -69,28 +36,7 @@ function renderTodayBanner() {
   }
 }
 
-// ---- API + SWR 캐시 ----
-
-function getEndpoint() {
-  return localStorage.getItem("juseter_endpoint") || DEFAULT_ENDPOINT;
-}
-
-const CACHE_PREFIX = "eubaram_cache_";
-
-function readCache(key) {
-  try {
-    const raw = localStorage.getItem(CACHE_PREFIX + key);
-    if (!raw) return null;
-    const obj = JSON.parse(raw);
-    return obj && "data" in obj ? obj.data : null;
-  } catch { return null; }
-}
-
-function writeCache(key, data) {
-  try {
-    localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ ts: Date.now(), data }));
-  } catch {}
-}
+// ---- API (캐시는 shared.js 의 readCache/writeCache 사용) ----
 
 async function apiList() {
   try {
@@ -382,12 +328,7 @@ async function init() {
   renderTodayBanner();
   setInterval(renderTodayBanner, 60 * 1000);
 
-  // SW 등록 (있으면)
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
-  }
-
-  // 1) 캐시 즉시 표시 (있으면)
+  // 1) 캐시 즉시 표시 (있으면) — SW 는 shared.js 가 자동 등록
   const cMembers = readCache("members") || [];
   const cEntries = readCache("entries") || [];
   const cLords = readCache("lords") || {};

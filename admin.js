@@ -1,26 +1,12 @@
 // =================================================
-// 주스터콜/EU연합 - 관리자 대시보드
+// EU연합 - 관리자 대시보드
+// (ALLIANCE / guildToFamily / $ / $$ / escapeHtml / pad2 / getEndpoint /
+//  ensureTesseractLoaded / resizeImage / preprocessForOcr / blobToBase64 는 shared.js)
 // =================================================
 
 const ADMIN_USER_KEY = "juseter_admin_user";
 const ADMIN_PW_KEY = "juseter_admin_pw";
 const ADMIN_SCOPE_KEY = "juseter_admin_scope";
-const DEFAULT_ENDPOINT = "https://script.google.com/macros/s/AKfycbwuCTkMYPDZoQIXe63N5aFf0W-ViJeo8LX4kfspdmt9qporNmgJPWdFAH6GUy2JyN2x5A/exec";
-
-// EU 연합 구조 (수동 관리)
-const ALLIANCE = {
-  name: "EU 연합",
-  leader: { nickname: "스왚", guild: "쿠데타" },
-  families: [
-    { name: "쿠데타계",       guilds: ["쿠데타", "혁명", "반란", "난"] },
-    { name: "주술사연합회계",  guilds: ["주술사연합회", "주스터콜", "주연", "주술사연맹", "주토피아", "주막왈숙네"] },
-    { name: "로켓단계",       guilds: ["로켓단"] },
-    { name: "매화계",         guilds: ["매화"] },
-    { name: "신화계",         guilds: ["신화", "시"] },
-    { name: "청룡계",         guilds: ["청룡"] },
-    { name: "연가계",         guilds: ["월하", "연가", "연희"] },
-  ],
-};
 
 function allGuilds() {
   const out = [];
@@ -28,31 +14,7 @@ function allGuilds() {
   return out;
 }
 
-function guildToFamily(guild) {
-  const g = (guild || "").trim();
-  for (const f of ALLIANCE.families) {
-    if (f.guilds.includes(g)) return f.name;
-  }
-  return "";
-}
-
-// ---- DOM helpers ----
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => Array.from(document.querySelectorAll(s));
-
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]));
-}
-
-function pad2(n) { return String(n).padStart(2, "0"); }
-
-// ---- Endpoint / API ----
-
-function getEndpoint() {
-  return localStorage.getItem("juseter_endpoint") || DEFAULT_ENDPOINT;
-}
+// ---- Session storage helpers (admin-specific) ----
 
 function getUsername() { return sessionStorage.getItem(ADMIN_USER_KEY) || ""; }
 function setUsername(u) { if (u) sessionStorage.setItem(ADMIN_USER_KEY, u); else sessionStorage.removeItem(ADMIN_USER_KEY); }
@@ -683,21 +645,6 @@ function handleLoadCurrent() {
 let memberOcrFiles = [];
 const MEMBER_OCR_MAX = 15;
 
-let _tesseractLoadingPromise = null;
-function ensureTesseractLoaded() {
-  if (typeof Tesseract !== "undefined") return Promise.resolve();
-  if (_tesseractLoadingPromise) return _tesseractLoadingPromise;
-  _tesseractLoadingPromise = new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js";
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Tesseract.js 로드 실패"));
-    document.head.appendChild(s);
-  });
-  return _tesseractLoadingPromise;
-}
-
 function setupMemberOcr() {
   const fileInput = $("#memberOcrFiles");
   const runBtn = $("#runOcrBtn");
@@ -776,43 +723,7 @@ function renderOcrPreviews() {
   });
 }
 
-// 이미지 리사이즈 + JPEG 압축 (Apps Script 업로드 페이로드 최소화)
-async function resizeImage(file, maxDim = 1600, quality = 0.85) {
-  const dataUrl = await new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = reject;
-    fr.readAsDataURL(file);
-  });
-  const img = await new Promise((resolve, reject) => {
-    const im = new Image();
-    im.onload = () => resolve(im);
-    im.onerror = reject;
-    im.src = dataUrl;
-  });
-  const ratio = Math.min(1, maxDim / Math.max(img.width, img.height));
-  const w = Math.round(img.width * ratio);
-  const h = Math.round(img.height * ratio);
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0, w, h);
-  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
-}
-
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => {
-      const s = fr.result || "";
-      const i = s.indexOf(",");
-      resolve(i >= 0 ? s.slice(i + 1) : s);
-    };
-    fr.onerror = reject;
-    fr.readAsDataURL(blob);
-  });
-}
+// resizeImage / blobToBase64 — shared.js
 
 async function callServerOcr(blob) {
   const ep = getEndpoint();
@@ -831,7 +742,8 @@ async function callServerOcr(blob) {
 
 async function tesseractOcr(file) {
   await ensureTesseractLoaded();
-  const blob = await preprocessImageForOcr(file).catch(() => file);
+  // admin OCR 은 가벼운 전처리 (2200px, 대비 1.5) — siege 보다 폰트 크기 큼
+  const blob = await preprocessForOcr(file, 2200, 1.5).catch(() => file);
   const { data: { text } } = await Tesseract.recognize(blob, "kor");
   return text || "";
 }
@@ -1027,43 +939,7 @@ function parseRosterOcrText(raw) {
   return out;
 }
 
-// OCR 용 이미지 전처리: 스케일업 + 그레이스케일 + 대비 향상.
-// 게임 UI 의 작은 글씨 인식률을 크게 높임.
-async function preprocessImageForOcr(file, targetLong = 2200, contrast = 1.5) {
-  const dataUrl = await new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = reject;
-    fr.readAsDataURL(file);
-  });
-  const img = await new Promise((resolve, reject) => {
-    const im = new Image();
-    im.onload = () => resolve(im);
-    im.onerror = reject;
-    im.src = dataUrl;
-  });
-  const longSide = Math.max(img.width, img.height);
-  const scale = longSide < targetLong ? targetLong / longSide : 1;
-  const w = Math.round(img.width * scale);
-  const h = Math.round(img.height * scale);
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d");
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(img, 0, 0, w, h);
-  const data = ctx.getImageData(0, 0, w, h);
-  const px = data.data;
-  for (let i = 0; i < px.length; i += 4) {
-    const g = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
-    let v = (g - 128) * contrast + 128;
-    if (v < 0) v = 0; else if (v > 255) v = 255;
-    px[i] = px[i + 1] = px[i + 2] = v;
-  }
-  ctx.putImageData(data, 0, 0);
-  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
-}
+// preprocessImageForOcr → preprocessForOcr (shared.js) 사용
 
 async function handleAddMember() {
   const input = $("#newMemberInput");
@@ -1132,10 +1008,7 @@ function init() {
     loadMonthly();
   });
 
-  // SW 등록
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
-  }
+  // SW 는 shared.js 가 자동 등록
 
   // 로그인 상태 확인 (세션 유지)
   if (getUsername() && getPassword()) {
