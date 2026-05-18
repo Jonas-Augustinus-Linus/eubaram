@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#003399" />
   <title>공성 가이드 · EU연합 통합시스템</title>
-  <meta name="description" content="바람의나라 클래식 옥좌공성 메커니즘 / 전략 카드 / 직업별 역할 / 체마→경험치/점수 계산기 / 외부 도구">
+  <meta name="description" content="바람의나라 클래식 옥좌공성 메커니즘 / 전략 카드 / 직업별 역할 / 외부 도구 큐레이션">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="styles.css?v=37" />
-  <link rel="stylesheet" href="guide.css?v=37" />
+  <link rel="stylesheet" href="styles.css?v=38" />
+  <link rel="stylesheet" href="guide.css?v=38" />
   <link rel="preconnect" href="https://script.google.com" crossorigin>
 </head>
 <body class="guide-body">
@@ -50,8 +50,7 @@
       <a href="#throne">👑 옥좌공성 메커니즘</a>
       <a href="#strategy">🎯 전략 카드</a>
       <a href="#classes">⚔️ 직업별 역할</a>
-      <a href="#calc">🧮 체마/점수 계산기</a>
-      <a href="#tools">🛠️ 외부 도구</a>
+      <a href="#tools">🛠️ 외부 도구 / 계산기</a>
       <a href="#etiquette">🤝 연합 에티켓</a>
       <a href="#faq">❓ FAQ</a>
     </nav>
@@ -158,92 +157,29 @@
       </div>
     </section>
 
-    <section class="card" id="calc">
-      <h2>🧮 체마 → 점수 / 필요 경험치 계산기</h2>
-      <p class="hint">바람비전 <code>expcal</code> 룰 기반. 현재→목표 체마로 필요한 경험치와 공성 점수 변동을 산출. <strong>모든 계산은 브라우저에서 즉시 처리</strong> (서버 호출 없음).</p>
-
-      <div class="calc-form">
-        <label class="field">
-          <span class="field-label">직업</span>
-          <select id="calcJob" class="calc-select">
-            <option value="Warrior">전사 (검객/검제/검황/검성)</option>
-            <option value="Sheif">도적 (자객/진검/귀검/태성)</option>
-            <option value="Magic">주술사 (술사/현사/현인/현자)</option>
-            <option value="Hill">도사 (도인/명인/진인/진선)</option>
-          </select>
-        </label>
-        <label class="field">
-          <span class="field-label">차수 (자동 입력)</span>
-          <select id="calcRank" class="calc-select">
-            <option value="">직접 입력</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="calc-form calc-form-4">
-        <label class="field">
-          <span class="field-label">현재 체력</span>
-          <input type="number" id="calcCurrentHp" placeholder="예: 70000" min="0" max="5000000" inputmode="numeric">
-        </label>
-        <label class="field">
-          <span class="field-label">현재 마력</span>
-          <input type="number" id="calcCurrentMp" placeholder="예: 0" min="0" max="5000000" inputmode="numeric">
-        </label>
-        <label class="field">
-          <span class="field-label">목표 체력</span>
-          <input type="number" id="calcTargetHp" placeholder="예: 200000" min="0" max="5000000" inputmode="numeric">
-        </label>
-        <label class="field">
-          <span class="field-label">목표 마력</span>
-          <input type="number" id="calcTargetMp" placeholder="예: 0" min="0" max="5000000" inputmode="numeric">
-        </label>
-      </div>
-
-      <div class="calc-output">
-        <div class="calc-result">
-          <div class="calc-result-label">체력 필요 경험치</div>
-          <div class="calc-result-value" id="calcExpHp">-</div>
-        </div>
-        <div class="calc-result">
-          <div class="calc-result-label">마력 필요 경험치</div>
-          <div class="calc-result-value" id="calcExpMp">-</div>
-        </div>
-        <div class="calc-result accent">
-          <div class="calc-result-label">총 필요 경험치</div>
-          <div class="calc-result-value" id="calcExpTotal">-</div>
-        </div>
-        <div class="calc-result">
-          <div class="calc-result-label">공성 점수 변동</div>
-          <div class="calc-result-value" id="calcScoreDelta">- → -</div>
-          <div class="calc-result-sub" id="calcScoreSub"></div>
-        </div>
-      </div>
-      <p class="hint">※ EXP 공식은 바람비전 expcal 코드 분석 추출(50 HP / 25 MP 단계 누적). 점수는 단순 추정 <code>(HP + MP×2) ÷ 1000</code> — 저~중간 체마에서 정확, 매우 높은 체마에서는 게임 표기보다 약간 다를 수 있음.</p>
-    </section>
-
     <section class="card" id="tools">
-      <h2>🛠️ 외부 도구 / 정보 사이트</h2>
-      <p class="hint">바람의나라 클래식 관련 외부 사이트. EU연합과 보완 관계.</p>
+      <h2>🛠️ 외부 도구 / 계산기</h2>
+      <p class="hint">체마 → 경험치/점수 계산기는 바람비전 <strong>expcal</strong> 을 사용하세요 (가장 정확). 그 외 의상실/데미지/거래소 등도 정리.</p>
       <div class="tools-grid">
-        <a class="tool-card" href="https://barambook.com/render" target="_blank" rel="noopener">
-          <div class="tool-head"><span class="tool-icon">🎨</span><span class="tool-name">의상실</span></div>
-          <div class="tool-source">바람비전</div>
-          <p>머리/갑옷/무기/염색/모션 조합 시뮬레이션. 공성용 코디 박제.</p>
+        <a class="tool-card tool-featured" href="https://barambook.com/expcal" target="_blank" rel="noopener">
+          <div class="tool-head"><span class="tool-icon">🧮</span><span class="tool-name">체마 → 점수/EXP 계산기</span></div>
+          <div class="tool-source">바람비전 · 가장 정확</div>
+          <p>현재→목표 체마 입력 → 필요 경험치 + 공성 점수 변동. 직업별/차수별 자동.</p>
         </a>
         <a class="tool-card" href="https://barambook.com/damcal" target="_blank" rel="noopener">
           <div class="tool-head"><span class="tool-icon">⚔️</span><span class="tool-name">데미지 계산기</span></div>
           <div class="tool-source">바람비전</div>
           <p>직업/스탯/무기 입력 → 예상 데미지. 공성 직전 세팅 검증용.</p>
         </a>
+        <a class="tool-card" href="https://barambook.com/render" target="_blank" rel="noopener">
+          <div class="tool-head"><span class="tool-icon">🎨</span><span class="tool-name">의상실</span></div>
+          <div class="tool-source">바람비전</div>
+          <p>머리/갑옷/무기/염색/모션 조합 시뮬레이션. 공성용 코디 박제.</p>
+        </a>
         <a class="tool-card" href="https://barambook.com/mix" target="_blank" rel="noopener">
           <div class="tool-head"><span class="tool-icon">🔨</span><span class="tool-name">조합 모의실험</span></div>
           <div class="tool-source">바람비전</div>
           <p>강화/제작 확률 시뮬. 공성 비축템 의사결정 보조.</p>
-        </a>
-        <a class="tool-card" href="https://barambook.com/expcal" target="_blank" rel="noopener">
-          <div class="tool-head"><span class="tool-icon">📈</span><span class="tool-name">경험치 계산기</span></div>
-          <div class="tool-source">바람비전</div>
-          <p>본 사이트 계산기의 원본 룰. 더 다양한 옵션은 원본에서 확인.</p>
         </a>
         <a class="tool-card" href="https://www.classicbaram.gg/trade" target="_blank" rel="noopener">
           <div class="tool-head"><span class="tool-icon">💰</span><span class="tool-name">거래소 시세</span></div>
@@ -330,7 +266,7 @@
     </div>
   </footer>
 
-  <script src="shared.js?v=37" defer></script>
-  <script src="guide.js?v=37" defer></script>
+  <script src="shared.js?v=38" defer></script>
+  <script src="guide.js?v=38" defer></script>
 </body>
 </html>

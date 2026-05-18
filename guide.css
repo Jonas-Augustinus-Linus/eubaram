@@ -329,6 +329,21 @@
   font-weight: 700;
 }
 
+.tool-card.tool-featured {
+  background: linear-gradient(135deg, rgba(255, 204, 0, 0.18), rgba(0, 51, 153, 0.10));
+  border-color: rgba(255, 204, 0, 0.55);
+  grid-column: 1 / -1;
+  box-shadow: 0 2px 12px rgba(255, 204, 0, 0.15);
+}
+
+.tool-card.tool-featured .tool-name { font-size: 16px; }
+.tool-card.tool-featured .tool-icon { font-size: 22px; }
+.tool-card.tool-featured .tool-source { color: #FFCC00; font-weight: 700; }
+.tool-card.tool-featured p { font-size: 13.5px; }
+.tool-card.tool-featured:hover {
+  background: linear-gradient(135deg, rgba(255, 204, 0, 0.26), rgba(0, 51, 153, 0.14));
+}
+
 .calc-result {
   background: var(--panel-2);
   border: 1px solid var(--border);
