@@ -1577,6 +1577,19 @@ function setupOcrPermissions() {
 // 이미지 base64 최대 크기 (~7MB base64 = ~5MB raw). Apps Script payload 한도 + Vision API 안전 마진.
 const OCR_MAX_B64_BYTES = 7 * 1024 * 1024;
 
+/**
+ * OCR 디스패처. 우선순위:
+ *   1) Gemini 2.5 Flash (GEMINI_API_KEY + schemaType 있으면) — 구조화 JSON 반환
+ *   2) Vision API (VISION_API_KEY 있으면) — 원본 텍스트
+ *   3) Drive OCR (Apps Script Drive 서비스 활성화 시) — 원본 텍스트
+ *
+ * body.schemaType: 'siege' (점수 추출) 또는 'admin' (문원 리스트 추출).
+ *   없으면 LLM 스킵 → 텍스트 OCR 만.
+ *
+ * 반환 형태:
+ *   { ok: true, structured?: {...}, text?: '...', engine: 'gemini|vision|drive' }
+ *   클라이언트는 structured 있으면 우선 사용, 없으면 text 정규식 폴백.
+ */
 function ocrImage_(body) {
   // 입력 크기 검증
   const raw = ((body && body.image) || '').toString();
@@ -1584,9 +1597,135 @@ function ocrImage_(body) {
   if (raw.length > OCR_MAX_B64_BYTES) {
     return { ok: false, error: '이미지가 너무 큽니다 (최대 5MB). 압축 후 다시 시도해 주세요.' };
   }
+  const geminiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  const schemaType = (body && body.schemaType || '').toString();
+  if (geminiKey && schemaType) {
+    const out = geminiOcr_(body, geminiKey, schemaType);
+    if (out.ok) return out;
+    // Gemini 실패 시 Vision/Drive 폴백 (text 만이라도 반환)
+  }
   const visionKey = PropertiesService.getScriptProperties().getProperty('VISION_API_KEY');
   if (visionKey) return visionOcr_(body, visionKey);
   return driveOcr_(body);
+}
+
+// ====================================================
+// Gemini 2.5 Flash OCR + 구조화 출력
+// 무료 티어: 10 RPM / 250 RPD (2026-05 기준).
+// 1회 설정: setupGeminiKey('AIza...') 편집기에서 실행.
+// 키는 aistudio.google.com 에서 무료 발급.
+// ====================================================
+
+function setupGeminiKey(key) {
+  if (!key) {
+    PropertiesService.getScriptProperties().deleteProperty('GEMINI_API_KEY');
+    return 'Gemini API 비활성화됨';
+  }
+  if (!/^AIza[\w-]{30,}$/.test(key)) {
+    return '키 형식 오류 (AIza... 로 시작하는 Google API 키)';
+  }
+  PropertiesService.getScriptProperties().setProperty('GEMINI_API_KEY', key);
+  return 'Gemini API 활성화 완료 (key ...' + key.slice(-6) + ')';
+}
+
+const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
+
+// schemaType 별 prompt + responseSchema 정의
+const GEMINI_SCHEMAS_ = {
+  siege: {
+    prompt: '이 바람의나라 클래식 게임 스크린샷에서 본인 캐릭터의 공성 점수를 추출하세요.\n' +
+            '점수는 보통 "등록한 공성전 참가점수: XXXX.XX" 또는 "참가점수 XXXX.XX" 같은 라벨 뒤에 표시됩니다.\n' +
+            '소수점 포함 숫자만 score 필드에 넣고, 닉네임이 함께 보이면 nickname 에 넣으세요.\n' +
+            '여러 점수가 보이면 가장 명확한 "참가점수" 라벨 뒤의 값을 우선으로 합니다.',
+    schema: {
+      type: 'object',
+      properties: {
+        score: { type: 'number', description: '공성 참가 점수 (예: 2818.23)' },
+        nickname: { type: 'string', description: '닉네임 (있으면)' },
+      },
+      required: ['score'],
+    },
+  },
+  admin: {
+    prompt: '이 바람의나라 클래식 문파원 목록 스크린샷에서 모든 닉네임과 역할을 추출하세요.\n' +
+            '역할(role) 은 정확히 다음 중 하나: "문파장", "부문파장", "문파원", 또는 명시되지 않은 경우 "" (빈 문자열).\n' +
+            '닉네임은 한글 1~6자 또는 영숫자가 일반적이며, 직책 텍스트("문파장" 등)는 role 에만 넣고 nickname 에는 캐릭터 ID 만 넣으세요.\n' +
+            '레벨/직업/상태 같은 부가 정보는 무시하세요.',
+    schema: {
+      type: 'object',
+      properties: {
+        members: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              nickname: { type: 'string', description: '캐릭터 닉네임' },
+              role: { type: 'string', enum: ['문파장', '부문파장', '문파원', ''], description: '직책 (없으면 빈 문자열)' },
+            },
+            required: ['nickname', 'role'],
+          },
+        },
+      },
+      required: ['members'],
+    },
+  },
+};
+
+function geminiOcr_(body, apiKey, schemaType) {
+  const cfg = GEMINI_SCHEMAS_[schemaType];
+  if (!cfg) return { ok: false, error: 'unknown schemaType: ' + schemaType };
+  const raw = (body.image || '').toString();
+  const b64 = raw.replace(/^data:[^,]+,/, '');
+  if (!b64) return { ok: false, error: '이미지 없음' };
+  const mime = (body.mime || 'image/jpeg').toString();
+
+  const reqBody = {
+    contents: [{
+      parts: [
+        { text: cfg.prompt },
+        { inline_data: { mime_type: mime, data: b64 } },
+      ],
+    }],
+    generationConfig: {
+      response_mime_type: 'application/json',
+      response_schema: cfg.schema,
+      temperature: 0.1,
+    },
+  };
+
+  try {
+    const res = UrlFetchApp.fetch(GEMINI_ENDPOINT + '?key=' + encodeURIComponent(apiKey), {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(reqBody),
+      muteHttpExceptions: true,
+    });
+    const code = res.getResponseCode();
+    const text = res.getContentText() || '';
+    if (code !== 200) {
+      return { ok: false, error: 'Gemini HTTP ' + code + ': ' + text.slice(0, 200) };
+    }
+    let parsed;
+    try { parsed = JSON.parse(text); } catch (e) {
+      return { ok: false, error: 'Gemini JSON parse fail' };
+    }
+    const cand = parsed && parsed.candidates && parsed.candidates[0];
+    const partsArr = cand && cand.content && cand.content.parts;
+    const jsonStr = partsArr && partsArr[0] && partsArr[0].text;
+    if (!jsonStr) {
+      // safetyBlocked / no candidate 등
+      const reason = (cand && cand.finishReason) || (parsed.promptFeedback && parsed.promptFeedback.blockReason) || 'no-content';
+      return { ok: false, error: 'Gemini no content: ' + reason };
+    }
+    let structured;
+    try { structured = JSON.parse(jsonStr); } catch (e) {
+      return { ok: false, error: 'Gemini schema JSON parse fail: ' + jsonStr.slice(0, 200) };
+    }
+    return { ok: true, structured: structured, engine: 'gemini', schemaType };
+  } catch (err) {
+    return { ok: false, error: 'Gemini fetch exception: ' + (err && err.message || err) };
+  }
 }
 
 function visionOcr_(body, apiKey) {

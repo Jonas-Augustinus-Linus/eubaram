@@ -3,20 +3,20 @@
 // 외부 도메인 (Apps Script, jsdelivr 등) 은 통과 (캐시하지 않음).
 
 // CACHE_NAME 은 빌드 버전(?v=N) 과 동기화 — activate 에서 옛 캐시 통째 삭제.
-const CACHE_NAME = "eubaram-static-v38";
+const CACHE_NAME = "eubaram-static-v39";
 
 const PRECACHE = [
   "./",
   "./index.html",
   "./siege.html",
   "./admin.html",
-  "./styles.css?v=38",
-  "./landing.css?v=38",
-  "./admin.css?v=38",
-  "./shared.js?v=38",
-  "./app.js?v=38",
-  "./landing.js?v=38",
-  "./admin.js?v=38",
+  "./styles.css?v=39",
+  "./landing.css?v=39",
+  "./admin.css?v=39",
+  "./shared.js?v=39",
+  "./app.js?v=39",
+  "./landing.js?v=39",
+  "./admin.js?v=39",
   "./manifest.webmanifest",
   "./icon.svg",
   "./icon-maskable.svg",

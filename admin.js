@@ -822,6 +822,8 @@ function renderOcrPreviews() {
 
 // resizeImage / blobToBase64 — shared.js
 
+// 반환: { text, structured, engine }
+//   Gemini 가 활성화돼 있으면 structured.members 배열 반환 (정규식 파싱 스킵 가능)
 async function callServerOcr(blob) {
   const ep = getEndpoint();
   if (!ep) throw new Error("엔드포인트 미설정");
@@ -829,12 +831,16 @@ async function callServerOcr(blob) {
   const res = await fetch(ep, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: "ocr", image: b64, mime: blob.type || "image/jpeg" }),
+    body: JSON.stringify({ action: "ocr", image: b64, mime: blob.type || "image/jpeg", schemaType: "admin" }),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "OCR 실패");
-  return data.text || "";
+  return {
+    text: data.text || "",
+    structured: data.structured || null,
+    engine: data.engine || "remote",
+  };
 }
 
 async function tesseractOcr(file) {
@@ -888,12 +894,14 @@ async function runMemberOcr() {
     if (thumb) thumb.classList.add("processing");
     const file = compressed[i];
     let text = "";
+    let structured = null;
     try {
-      text = await callServerOcr(file);
+      const r = await callServerOcr(file);
+      text = r.text || "";
+      structured = r.structured || null;
       serverFailedAll = false;
     } catch (err) {
       console.warn(`이미지 #${i+1} 서버 OCR 실패:`, err.message);
-      // Tesseract 폴백
       try {
         text = await tesseractOcr(memberOcrFiles[i]);
         serverFailedAll = false;
@@ -901,7 +909,15 @@ async function runMemberOcr() {
         console.warn(`이미지 #${i+1} Tesseract 폴백도 실패:`, err2.message);
       }
     }
-    if (text) {
+    // Gemini 구조화 응답 우선
+    if (structured && Array.isArray(structured.members)) {
+      structured.members.forEach((m) => {
+        const nick = (m.nickname || "").toString().trim();
+        if (!nick) return;
+        const role = ["문파장", "부문파장", "문파원"].includes(m.role) ? m.role : "";
+        allParsed.push({ nickname: nick, role });
+      });
+    } else if (text) {
       const parsed = parseRosterOcrText(text);
       allParsed.push(...parsed);
     }
@@ -910,7 +926,7 @@ async function runMemberOcr() {
     fill.style.width = `${(completed / memberOcrFiles.length) * 100}%`;
     if (thumb) {
       thumb.classList.remove("processing");
-      if (text) thumb.classList.add("done");
+      if (text || structured) thumb.classList.add("done");
     }
   }
 

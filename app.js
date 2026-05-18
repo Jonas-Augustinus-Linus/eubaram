@@ -156,8 +156,8 @@ function extractScoreCandidates(rawText) {
   };
 }
 
-// 서버 OCR (Apps Script → Google Vision API 또는 Drive OCR)
-// Vision 우선, 실패시 Drive 폴백 (서버측에서 자동 분기)
+// 서버 OCR (Apps Script → Gemini 2.5 Flash → Vision → Drive 자동 폴백)
+// schemaType='siege' 보내면 Gemini 가 구조화 JSON {score, nickname} 직접 반환.
 async function runOcrRemote(file) {
   const ep = getEndpoint();
   if (!ep) throw new Error("엔드포인트 미설정");
@@ -168,12 +168,16 @@ async function runOcrRemote(file) {
   const res = await fetch(ep, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: "ocr", image: b64, mime: blob.type || "image/jpeg" }),
+    body: JSON.stringify({ action: "ocr", image: b64, mime: blob.type || "image/jpeg", schemaType: "siege" }),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "OCR 실패");
-  return { text: data.text || "", engine: data.engine || "remote" };
+  return {
+    text: data.text || "",
+    structured: data.structured || null,
+    engine: data.engine || "remote",
+  };
 }
 
 // 클라이언트 폴백 OCR (Tesseract.js) - 전처리 후 실행, 단어 레벨 데이터까지 추출
@@ -199,22 +203,22 @@ async function runOcrLocal(file) {
   return { text, words };
 }
 
-// 우선순위: 서버 OCR (Vision API) → 실패 시 Tesseract 폴백.
-// Vision 인식률은 Tesseract 보다 압도적으로 높고 처리도 더 빠름.
+// 우선순위: Gemini (구조화) → Vision (text) → Drive (text) → Tesseract (text 폴백)
+// 구조화 응답(structured)이 있으면 정규식 파싱 스킵 가능 → 호출자가 우선 사용.
 async function runOcr(file) {
   try {
-    const { text, engine } = await runOcrRemote(file);
-    if (text && text.trim().length > 0) {
-      return { text, engine };
+    const result = await runOcrRemote(file);
+    // 구조화 응답이 있으면 text 없어도 OK
+    if (result.structured || (result.text && result.text.trim().length > 0)) {
+      return result;
     }
-    // 텍스트가 비면 Tesseract 폴백
     throw new Error("empty");
   } catch (err) {
     console.warn("서버 OCR 실패, Tesseract 폴백:", err.message);
     $("#ocrStatusText").textContent = "Tesseract 폴백 실행 중…";
     const { text, words } = await runOcrLocal(file);
     const combinedText = text + "\n" + (words || []).join(" ");
-    return { text: combinedText, engine: "tesseract" };
+    return { text: combinedText, structured: null, engine: "tesseract" };
   }
 }
 
@@ -799,15 +803,22 @@ async function runRowOcr(row, file) {
   const status = row.querySelector(".multi-drop-status");
   const rowIdx = Array.from(row.parentElement.children).indexOf(row) + 2;
   try {
-    const { text } = await runOcr(file);
-    const { primary, list } = extractScoreCandidates(text);
-    const pick = primary || list[0];
+    const { text, structured, engine } = await runOcr(file);
+    // Gemini 구조화 응답 우선
+    let pick = null;
+    if (structured && typeof structured.score === "number") {
+      pick = structured.score.toString();
+    } else if (text) {
+      const { primary, list } = extractScoreCandidates(text);
+      pick = primary || list[0];
+    }
     dz.classList.remove("processing");
     if (pick) {
       row.querySelector(".multi-score").value = pick;
       dz.classList.add("done");
       status.className = "multi-drop-status success";
-      status.innerHTML = `<span>✓ 점수 ${pick} 인식됨</span>`;
+      const tag = engine === "gemini" ? "AI 인식" : "OCR 인식";
+      status.innerHTML = `<span>✓ ${tag} ${pick}</span>`;
     } else {
       dz.classList.add("error-state");
       status.className = "multi-drop-status error";
@@ -852,21 +863,29 @@ async function handleFile(file) {
   $("#rawOcrText").textContent = "";
   $("#rawOcrSection").hidden = true;
   try {
-    const { text, engine } = await runOcr(file);
-    const { primary, list } = extractScoreCandidates(text);
+    const { text, structured, engine } = await runOcr(file);
+    // Gemini 구조화 응답 우선
+    if (structured && typeof structured.score === "number") {
+      const score = structured.score.toString();
+      $("#score").value = score;
+      $("#ocrStatusText").textContent = `🤖 AI 인식: ${score}점${structured.nickname ? ` (${structured.nickname})` : ""}`;
+      renderCandidates([score], score);
+      if (text) { $("#rawOcrText").textContent = text; $("#rawOcrSection").hidden = false; }
+      return;
+    }
+    // 텍스트 정규식 폴백 (Vision/Drive/Tesseract)
+    const { primary, list } = extractScoreCandidates(text || "");
     renderCandidates(list, primary);
     if (primary) {
       $("#score").value = primary;
       $("#ocrStatusText").textContent = `「참가점수」 라벨에서 ${primary} 인식 ✓`;
     } else if (list.length) {
-      // 라벨을 못 찾으면 자동 채우지 않음 - 사용자가 칩에서 직접 선택
       $("#ocrStatusText").innerHTML = `숫자 후보 ${list.length}개 인식됨. 아래에서 선택하거나, <button type="button" class="link-btn-inline" id="cropTrigger">점수 영역만 직접 선택</button>해 보세요.`;
       $("#cropTrigger")?.addEventListener("click", () => startCropMode());
     } else {
       $("#ocrStatusText").innerHTML = `점수 인식 실패. <button type="button" class="link-btn-inline" id="cropTrigger">점수 영역만 직접 선택</button>해 보세요. 또는 직접 입력.`;
       $("#cropTrigger")?.addEventListener("click", () => startCropMode());
     }
-    // 디버그용 원본 텍스트 표시 (접혀있음)
     if (text) {
       $("#rawOcrText").textContent = text;
       $("#rawOcrSection").hidden = false;
