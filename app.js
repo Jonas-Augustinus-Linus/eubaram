@@ -1116,6 +1116,14 @@ function init() {
   // refresh banner every minute
   setInterval(renderTodayBanner, 60 * 1000);
 
+  // 닉네임 입력 시 자동 저장 + prefill (명전에서 본인 행 강조 + 다음 방문 자동 채움)
+  const nickInput = $("#nickname");
+  if (nickInput) {
+    if (!nickInput.value) nickInput.value = getMyNickname();
+    nickInput.addEventListener("blur", () => setMyNickname(nickInput.value));
+    nickInput.addEventListener("change", () => setMyNickname(nickInput.value));
+  }
+
   // 드롭존 자체가 <label for="fileInput"> 이므로 클릭하면 파일 선택이 자동으로 열림.
   $("#fileInput").addEventListener("change", (e) => {
     if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);

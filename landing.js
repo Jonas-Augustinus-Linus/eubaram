@@ -343,15 +343,19 @@ function renderHallOfFame(data) {
     body.innerHTML = `
       <table class="hof-table">
         <thead><tr><th>순위</th><th>닉네임</th><th>문파</th><th class="num">가중치</th><th class="num">원점수</th><th>정예</th></tr></thead>
-        <tbody>${data.rows.map((r, i) => `
-          <tr class="${i === 0 ? "rank-1" : i === 1 ? "rank-2" : i === 2 ? "rank-3" : ""}">
+        <tbody>${data.rows.map((r, i) => {
+          const rankClass = i === 0 ? "rank-1" : i === 1 ? "rank-2" : i === 2 ? "rank-3" : "";
+          const meClass = isMyNickname(r.nickname) ? "is-me" : "";
+          return `
+          <tr class="${rankClass} ${meClass}">
             <td class="rank">${medal(i)}</td>
-            <td><strong>${escapeHtml(r.nickname)}</strong></td>
+            <td><strong>${escapeHtml(r.nickname)}</strong>${meClass ? ' <span class="me-tag">나</span>' : ''}</td>
             <td>${escapeHtml(r.guild || "-")}</td>
             <td class="num accent">${r.weightedScore.toFixed(2)}</td>
             <td class="num muted">${r.baseScore.toFixed(2)}</td>
             <td>${renderEliteMini(r.elite)}</td>
-          </tr>`).join("")}</tbody>
+          </tr>`;
+        }).join("")}</tbody>
       </table>`;
     return;
   }

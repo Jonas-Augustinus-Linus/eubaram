@@ -245,6 +245,28 @@ document.addEventListener("DOMContentLoaded", () => {
   setInterval(tickSiegeCountdown, 1000);
 });
 
+// ---- 본인 닉네임 (localStorage) ----
+// siege 페이지에서 점수 등록 시 자동 저장됨. 명전에서 본인 행 강조용.
+const MY_NICK_KEY = "eubaram_my_nickname";
+
+function getMyNickname() {
+  try { return (localStorage.getItem(MY_NICK_KEY) || "").trim(); } catch { return ""; }
+}
+
+function setMyNickname(n) {
+  try {
+    const v = (n || "").toString().trim();
+    if (v) localStorage.setItem(MY_NICK_KEY, v);
+    else localStorage.removeItem(MY_NICK_KEY);
+  } catch {}
+}
+
+function isMyNickname(n) {
+  const me = getMyNickname().toLowerCase();
+  if (!me) return false;
+  return me === (n || "").toString().trim().toLowerCase();
+}
+
 // ---- Service Worker 자동 등록 (모든 페이지) ----
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});

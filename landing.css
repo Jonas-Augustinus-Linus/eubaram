@@ -311,6 +311,26 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
+.hof-table tr.is-me {
+  background: linear-gradient(90deg, rgba(46, 160, 67, 0.22), rgba(46, 160, 67, 0.06));
+  border-left: 3px solid #69d586;
+  box-shadow: inset 0 0 0 1px rgba(105, 213, 134, 0.25);
+}
+
+.hof-table tr.is-me td:first-child { padding-left: 7px; }
+
+.me-tag {
+  display: inline-block;
+  background: #2ea043;
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
 .elite-mini {
   font-size: 13px;
 }

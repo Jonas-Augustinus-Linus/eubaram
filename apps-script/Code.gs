@@ -156,6 +156,71 @@ function notifyDiscordCastleChange_(castle, guild) {
 }
 
 /**
+ * 마감 1시간 전 (월~목 22:30) 자동 알림 — Apps Script Trigger 로 호출.
+ *
+ * 트리거 설정 안내:
+ *   편집기 → ⏰ 트리거 → 함수: notifyDeadlineWarning
+ *     + 이벤트: 시간 기반 + 매일 22:00~23:00 (중 한 시간대)
+ *   요일 가드는 함수 안에 있으니 매일 트리거 잡아도 월~목만 동작.
+ *   같은 날 중복 발송 방지 가드 포함.
+ */
+function notifyDeadlineWarning() {
+  if (!getDiscordWebhook_()) {
+    console.log('notifyDeadlineWarning: Discord webhook 미설정 → skip');
+    return;
+  }
+  const now = kstNow_();
+  const day = now.getUTCDay(); // 0=일, 1=월, ..., 4=목
+  if (day < 1 || day > 4) {
+    console.log('notifyDeadlineWarning: 월~목 외 → skip (요일=' + day + ')');
+    return;
+  }
+
+  // 같은 날 중복 발송 방지
+  const today = kstDateStr_(now);
+  const sentKey = 'DEADLINE_WARN_SENT';
+  const lastSent = PropertiesService.getScriptProperties().getProperty(sentKey);
+  if (lastSent === today) {
+    console.log('notifyDeadlineWarning: 오늘 이미 발송됨 → skip');
+    return;
+  }
+
+  // 이번주(월~일) 등록 안 한 문원 = 미신청자
+  const range = thisWeekRange_();
+  const allEntries = listEntries_();
+  const inRange = entriesInRange_(allEntries, range.start, range.end);
+  const submitted = new Set();
+  inRange.forEach((e) => submitted.add((e.nickname || '').trim().toLowerCase()));
+
+  const members = listMembers_();
+  const missing = members.filter((m) => !submitted.has((m.nickname || '').trim().toLowerCase()));
+
+  const castleMap = { 1: '주작성', 2: '현무성', 3: '청룡성', 4: '백호성' };
+  const castle = castleMap[day] || '오늘';
+
+  // 미신청자 닉네임 (최대 30명, 그 이상은 +N명 표시)
+  const missingNames = missing.slice(0, 30).map((m) => `\`${m.nickname}\``).join(' · ');
+  const moreCount = Math.max(0, missing.length - 30);
+  const missingLine = missingNames + (moreCount > 0 ? `\n…외 ${moreCount}명` : '');
+
+  const embed = {
+    title: `⏰ ${castle} 공성 신청 1시간 전!`,
+    description: '오늘 신청 마감: **23:30 (KST)**\n\n' + (missing.length
+      ? `**미신청자 ${missing.length}명**\n${missingLine}`
+      : '✅ 모든 문원이 신청 완료! 수고하셨습니다.'),
+    color: 0xff5147,
+    timestamp: new Date().toISOString(),
+    footer: { text: 'EU연합 통합시스템 · 마감 알림' },
+  };
+
+  const sent = notifyDiscord_(missing.length ? '@everyone 공성 신청 마감 1시간 전' : null, [embed]);
+  if (sent) {
+    PropertiesService.getScriptProperties().setProperty(sentKey, today);
+    console.log('notifyDeadlineWarning: 발송 완료 (미신청 ' + missing.length + '명)');
+  }
+}
+
+/**
  * 주간 결과 요약 — 일요일 밤 등 Apps Script Trigger 로 호출.
  * 트리거 설정 안내: 편집기 → 트리거 → 함수 postWeeklyDiscordSummary + 시간 기반 + 매주 일요일 23:00.
  */
